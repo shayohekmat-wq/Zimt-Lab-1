@@ -34,6 +34,7 @@ public class BeetActivity extends Activity {
     private PlantStore store;
     private BeetCanvas bed;
     private TextView status;
+    private TextView rules;
     private TextView hint;
     private Button wateringToggle;
     private boolean wateringMode;
@@ -52,7 +53,9 @@ public class BeetActivity extends Activity {
         bed = new BeetCanvas();
         Ui.add(page, bed, 12);
         status = Ui.text(this, "Deine Pflanzen werden geladen …", 14, false);
-        Ui.add(page, status, 12);
+        Ui.add(page, status, 9);
+        rules = Ui.text(this, "", 13, false);
+        Ui.add(page, rules, 12);
         wateringToggle = Ui.button(this, "Gießkanne aktivieren");
         wateringToggle.setOnClickListener(v -> {
             wateringMode = !wateringMode;
@@ -70,7 +73,7 @@ public class BeetActivity extends Activity {
         hint = Ui.text(this, "Pflanze lange berühren und dann verschieben.", 13, false);
         Ui.add(page, hint, 9);
         Ui.add(page, Ui.text(this,
-            "Entwicklungsstand 0.0.2: Gießvorgänge werden gespeichert; die zufälligen Pflegefristen und echte Evolution folgen im nächsten Spielmechanik-Build.",
+            "Die aktiven Pflegefristen gelten offline weiter. Bei Regelverstößen fällt die Pflanze eine Stufe zurück; zwei Verstöße auf Stufe 1 führen zum Tod. Die Detailregeln sind vorläufig.",
             12, false), 0);
         setContentView(scroll);
     }
@@ -84,13 +87,22 @@ public class BeetActivity extends Activity {
         sprites.clear();
         plants.clear();
         plants.addAll(store.loadPlants());
-        int n = 0;
-        for (PlantStore.Plant p : plants) n += p.wateringCount;
+        long now = System.currentTimeMillis();
+        for (PlantStore.Plant plant: plants) {
+            CareEngine.Result state=CareEngine.evaluate(plant, now);
+            if(state.changed) save(plant);
+        }
+        updateStatus(plants.isEmpty() ? null : plants.get(0));
+        bed.invalidate();
+    }
+    private void updateStatus(PlantStore.Plant selected) {
+        int n=0, dead=0;
+        for(PlantStore.Plant p:plants) { n+=p.wateringCount; if(p.dead) dead++; }
         status.setText(plants.isEmpty()
             ? "Noch keine Pflanze vorhanden. Erstelle deine erste Evolutionspflanze."
             : plants.size() + (plants.size() == 1 ? " Pflanze" : " Pflanzen") +
-            " im Beet · " + n + " gespeicherte Gießvorgänge");
-        bed.invalidate();
+                " im Beet · " + n + " Gießvorgänge" + (dead>0 ? " · " + dead + " tot" : ""));
+        if (rules != null) rules.setText(selected == null ? "" : CareEngine.rulesFor(selected,System.currentTimeMillis()));
     }
     @Override protected void onPause() {
         if (bed != null) bed.cancelAll(); // no watering can continue while backgrounded
@@ -222,25 +234,20 @@ public class BeetActivity extends Activity {
             held = candidate;
             counted = false;
             holdStart = SystemClock.elapsedRealtime();
-            if (candidate == null) { invalidate(); return; }
+            if (candidate == null || candidate.dead) { invalidate(); return; }
             final PlantStore.Plant expected = candidate;
             pendingWater = () -> {
                 if (!pointerDown || !wateringMode || held != expected || counted) return;
                 if (SystemClock.elapsedRealtime() - holdStart < 5000L) return;
                 counted = true;
-                expected.wateringCount++;
-                expected.lastWaterAtUtc = System.currentTimeMillis();
-                save(expected);
-                status.setText(plants.size() + " Pflanzen im Beet · " +
-                    totalWaterings() + " gespeicherte Gießvorgänge");
-                Toast.makeText(BeetActivity.this, "Ein Gießvorgang registriert!", Toast.LENGTH_SHORT).show();
+                CareEngine.Result outcome=CareEngine.water(expected, System.currentTimeMillis());
+                if(outcome.changed) save(expected);
+                updateStatus(expected);
+                Toast.makeText(BeetActivity.this, outcome.message(), Toast.LENGTH_LONG).show();
                 invalidate();
             };
             handler.postDelayed(pendingWater, 5000L);
             invalidate();
-        }
-        private int totalWaterings() {
-            int n=0; for(PlantStore.Plant plant:plants) n+=plant.wateringCount; return n;
         }
         @Override public boolean onTouchEvent(MotionEvent ev) {
             int action=ev.getActionMasked();
