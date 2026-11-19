@@ -55,7 +55,7 @@ public final class ContourDetector {
                 if(d2>=2 && d2<=16) possible.add(new int[]{a,b,d2});
             }
         }
-        possible.sort((a,b)->Integer.compare(a[2],b[2]));
+        java.util.Collections.sort(possible,(a,b)->Integer.compare(a[2],b[2]));
         int trials=Math.min(24,possible.size());
         for(int t=0;t<trials;t++){
             int[] pair=possible.get(t);
