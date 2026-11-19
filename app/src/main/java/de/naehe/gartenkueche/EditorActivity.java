@@ -235,16 +235,32 @@ public class EditorActivity extends Activity {
                 : "Kontur prüfen und ausmalen");
         next.setOnClickListener(v -> {
             if (!draft.colorMode) {
-                if (!draft.active.validate()) {
-                    new AlertDialog.Builder(this).setTitle("Noch keine Innenfläche erkannt")
-                        .setMessage("Mehrere angesetzte Linien, überstehende Enden und Kreuzungen sind erlaubt. Es muss lediglich eine ausreichend große, wirklich eingeschlossene Fläche vorhanden sein. Kleine Lücken bis vier Pixel werden automatisch geschlossen.")
-                        .setPositiveButton("Verstanden", null).show();
-                    return;
-                }
-                draft.colorMode = true;
-                freshUndo();
-                persistDraft();
-                buildScreen();
+                // Validate off-thread: complex multi-stroke art must NEVER stall touch/UI.
+                next.setEnabled(false);
+                paintingSurface.setEnabled(false);
+                tip.setText("Kontur und Innenfläche werden im Hintergrund geprüft …");
+                final int generation=screenGeneration;
+                final PlantArt candidate=draft.active.copy();
+                AppIo.execute(()->{
+                    boolean success=candidate.validate();
+                    AppIo.onMain(()->{
+                        if(isFinishing() || isDestroyed() || generation!=screenGeneration)return;
+                        next.setEnabled(true);
+                        paintingSurface.setEnabled(true);
+                        if(!success){
+                            tip.setText("Noch keine abgeschlossene Innenfläche erkannt. Zeichne einfach weiter.");
+                            new AlertDialog.Builder(this).setTitle("Noch keine Innenfläche erkannt")
+                                .setMessage("Mehrere Striche und überstehende Linien sind erlaubt. Es muss nur eine klar eingeschlossene Fläche geben; kleine Lücken werden automatisch geschlossen.")
+                                .setPositiveButton("Verstanden",null).show();
+                            return;
+                        }
+                        draft.active=candidate;
+                        draft.colorMode=true;
+                        freshUndo();
+                        persistDraft();
+                        buildScreen();
+                    });
+                });
             } else if (draft.drawingDeath) {
                 completePlant(draft.active.copy());
             } else {
@@ -388,6 +404,7 @@ public class EditorActivity extends Activity {
             return Math.max(0, Math.min(PlantArt.SIZE-1, oy + (int)(py * (PlantArt.SIZE / zoom) / getHeight())));
         }
         @Override public boolean onTouchEvent(MotionEvent e) {
+            if(!isEnabled())return true;
             int action = e.getActionMasked();
             if (action == MotionEvent.ACTION_DOWN && getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
             if (action == MotionEvent.ACTION_POINTER_DOWN && e.getPointerCount() >= 2) {
