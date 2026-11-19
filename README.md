@@ -2,7 +2,7 @@
 
 **Native Android-App als eigenständiges Labor für spätere Integration in ZIMT.** Java/Canvas, Android **6.0+ / API23**, offline-first, installierbar neben dem Hauptprojekt. Das bestehende ZIMT-Repository \`shayohekmat-wq/Test\` bleibt unverändert.
 
-## Entwicklungsstand: 0.0.2 (Funktionsprototyp; kein abgeschlossener 0.1.0-Release)
+## Entwicklungsstand: 0.0.3 (parallel installierbarer Fix nach 0.0.2) (Funktionsprototyp; kein abgeschlossener 0.1.0-Release)
 
 ### Bereits implementiert
 - **Startseite:** Kacheln Beet (aktiv), Küche und Garten (Platzhalter).
@@ -28,10 +28,10 @@
 
 1. [GitHub Actions](https://github.com/shayohekmat-wq/Zimt-Lab-1/actions) öffnen.
 2. **Neuesten erfolgreichen** Build „Garten und Kueche - Android Debug APK“ wählen.
-3. Unter **Artifacts** \`Garten-und-Kueche-Lab-0.0.2-Debug-APK\` herunterladen.
+3. Unter **Artifacts** \`Garten-und-Kueche-Lab-0.0.3-Parallel-APK\` herunterladen.
 4. ZIP entpacken und \`app-debug.apk\` auf dem Android-Smartphone installieren.
 
-Die App verwendet eine eigene Paketkennung \`de.naehe.app.gartenkueche.lab1\` und überschreibt ZIMT nicht. Die Android-Laufzeit muss bei erster Installation eventuell „aus dieser Quelle installieren“ erlauben.
+**Ab 0.0.3 hat jede neue Lab-Version eine eigene Paketkennung**: \`de.naehe.app.gartenkueche.lab3\` für 0.0.3 (v0.0.2 verwendete \`de.naehe.app.gartenkueche.lab1\`). Dadurch lässt sich 0.0.3 parallel zu 0.0.2 und zur ZIMT-Hauptapp installieren. Wichtig: Die App-Daten sind durch das Android-Sandbox-System getrennt; die alte Pflanze wird nicht automatisch mitgenommen. Für eine zukünftige separate Version muss \`labBuild\` in app/build.gradle.kts erhöht werden. Die Android-Laufzeit muss bei erster Installation eventuell „aus dieser Quelle installieren“ erlauben.
 
 ## Vorläufige Spielregelinterpretation
 
