@@ -45,7 +45,7 @@ public final class PlantStore {
         public long lastWaterAtUtc;
         public boolean dead;
         // Care-engine snapshot; concrete random values never reroll when resuming.
-        public long stageEnteredAtUtc, windowStartUtc, windowEndUtc, lastEvaluatedUtc, windowOrdinal;
+        public long stageEnteredAtUtc, windowStartUtc, windowEndUtc, lastEvaluatedAtUtc, windowOrdinal;
         public int windowWaterings, minWater, maxWater, windowDays, evolutionDays, strikesAtStageOne;
         public final ArrayList<Long> waterEventsUtc = new ArrayList<>();
     }
@@ -116,7 +116,7 @@ public final class PlantStore {
             out.writeLong(plant.stageEnteredAtUtc);
             out.writeLong(plant.windowStartUtc);
             out.writeLong(plant.windowEndUtc);
-            out.writeLong(plant.lastEvaluatedUtc);
+            out.writeLong(plant.lastEvaluatedAtUtc);
             out.writeLong(plant.windowOrdinal);
             out.writeInt(plant.windowWaterings);
             out.writeInt(plant.minWater);
@@ -158,7 +158,7 @@ public final class PlantStore {
                         p.stageEnteredAtUtc=in.readLong();
                         p.windowStartUtc=in.readLong();
                         p.windowEndUtc=in.readLong();
-                        p.lastEvaluatedUtc=in.readLong();
+                        p.lastEvaluatedAtUtc=in.readLong();
                         p.windowOrdinal=in.readLong();
                         p.windowWaterings=in.readInt();
                         p.minWater=in.readInt();
