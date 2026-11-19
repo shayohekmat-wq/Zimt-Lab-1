@@ -10,7 +10,7 @@ import java.util.zip.GZIPOutputStream;
 /** Prototype disk persistence; schema is explicitly versioned for future SQLite migration. */
 public final class PlantStore {
     private static final int MAGIC = 0x5A504C32;
-    private static final int VERSION = 2;
+    private static final int VERSION = 3;
     private static final String TAG = "GartenKuecheStorage";
     public static final String[] DIFFICULTIES = {"Pflegeleicht", "Medium", "Profi", "Diva"};
     private final File root;
@@ -44,6 +44,10 @@ public final class PlantStore {
         public int wateringCount;
         public long lastWaterAtUtc;
         public boolean dead;
+        // Care-engine snapshot; concrete random values never reroll when resuming.
+        public long stageEnteredAtUtc, windowStartUtc, windowEndUtc, lastEvaluatedUtc, windowOrdinal;
+        public int windowWaterings, minWater, maxWater, windowDays, evolutionDays, strikesAtStageOne;
+        public final ArrayList<Long> waterEventsUtc = new ArrayList<>();
     }
 
     public synchronized void saveDraft(Draft d) throws IOException {
@@ -66,7 +70,7 @@ public final class PlantStore {
         File file = new File(root, "draft.bin.gz");
         if (!file.isFile()) return null;
         try {
-            return read(file, in -> {
+            return read(file, (in, version) -> {
                 if (in.readInt() != 1) throw new IOException("Not a draft");
                 Draft d = Draft.empty(in.readInt());
                 int n = in.readInt();
@@ -109,6 +113,19 @@ public final class PlantStore {
             out.writeInt(plant.stage); out.writeInt(plant.x); out.writeInt(plant.y);
             out.writeInt(plant.wateringCount); out.writeLong(plant.lastWaterAtUtc);
             out.writeBoolean(plant.dead);
+            out.writeLong(plant.stageEnteredAtUtc);
+            out.writeLong(plant.windowStartUtc);
+            out.writeLong(plant.windowEndUtc);
+            out.writeLong(plant.lastEvaluatedUtc);
+            out.writeLong(plant.windowOrdinal);
+            out.writeInt(plant.windowWaterings);
+            out.writeInt(plant.minWater);
+            out.writeInt(plant.maxWater);
+            out.writeInt(plant.windowDays);
+            out.writeInt(plant.evolutionDays);
+            out.writeInt(plant.strikesAtStageOne);
+            out.writeInt(plant.waterEventsUtc.size());
+            for(long at : plant.waterEventsUtc) out.writeLong(at);
         });
     }
 
@@ -119,7 +136,7 @@ public final class PlantStore {
         Arrays.sort(files, Comparator.comparing(File::getName));
         for (File f : files) {
             try {
-                Plant plant = read(f, in -> {
+                Plant plant = read(f, (in, version) -> {
                     if(in.readInt() != 2) throw new IOException("Not plant record");
                     Plant p = new Plant();
                     p.id=in.readUTF();
@@ -137,6 +154,22 @@ public final class PlantStore {
                     p.x=in.readInt(); p.y=in.readInt();
                     p.wateringCount=in.readInt(); p.lastWaterAtUtc=in.readLong();
                     p.dead=in.readBoolean();
+                    if(version >= 3) {
+                        p.stageEnteredAtUtc=in.readLong();
+                        p.windowStartUtc=in.readLong();
+                        p.windowEndUtc=in.readLong();
+                        p.lastEvaluatedUtc=in.readLong();
+                        p.windowOrdinal=in.readLong();
+                        p.windowWaterings=in.readInt();
+                        p.minWater=in.readInt();
+                        p.maxWater=in.readInt();
+                        p.windowDays=in.readInt();
+                        p.evolutionDays=in.readInt();
+                        p.strikesAtStageOne=in.readInt();
+                        int events=in.readInt();
+                        if(events<0 || events>100000) throw new IOException("Invalid event count");
+                        for(int j=0;j<events;j++) p.waterEventsUtc.add(in.readLong());
+                    }
                     if(p.stage<1 || p.stage>n || p.x<0 || p.x>800 || p.y<0 || p.y>600 ||
                         p.wateringCount<0 || !p.id.matches("[A-Za-z0-9-]{1,64}"))
                         throw new IOException("Bad plant properties");
@@ -149,7 +182,7 @@ public final class PlantStore {
     }
 
     private interface Writer { void write(DataOutputStream out) throws IOException; }
-    private interface Reader<T> { T read(DataInputStream in) throws IOException; }
+    private interface Reader<T> { T read(DataInputStream in, int version) throws IOException; }
     private void write(File destination, Writer writer) throws IOException {
         File temp = new File(root, destination.getName() + ".tmp");
         try (FileOutputStream stream = new FileOutputStream(temp);
@@ -168,9 +201,10 @@ public final class PlantStore {
     private <T> T read(File source, Reader<T> reader) throws IOException {
         try (DataInputStream in = new DataInputStream(
                 new GZIPInputStream(new FileInputStream(source)))) {
-            if (in.readInt() != MAGIC || in.readInt() != VERSION)
-                throw new IOException("Unsupported storage version");
-            return reader.read(in);
+            if (in.readInt() != MAGIC) throw new IOException("Unsupported storage magic");
+            int version = in.readInt();
+            if(version != 2 && version != VERSION) throw new IOException("Unsupported storage version");
+            return reader.read(in, version);
         }
     }
 }
