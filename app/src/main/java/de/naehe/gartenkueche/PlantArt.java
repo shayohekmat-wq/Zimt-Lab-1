@@ -55,92 +55,29 @@ public final class PlantArt {
     }
 
     /**
-     * Validates a visibly closed contour: endpoints touch, no canvas-edge leaks,
-     * all stroke pixels connected, exactly one enclosed 4-neighbour region.
-     * Mask calculation deliberately avoids allocations per pixel.
+     * A valid contour is identified by its enclosed pixels, not by gesture order.
+     * Multiple separately drawn lines, branches and crossings are accepted.
+     * Short gaps up to four logical pixels may be closed automatically.
      */
     public boolean validate() {
         inside = null;
-        if (points < 12 || startX < 0 ||
-                Math.abs(endX - startX) > 1 || Math.abs(endY - startY) > 1) return false;
-        for (int x = 0; x < SIZE; x++)
-            if (outline[at(x, 0)] || outline[at(x, SIZE - 1)]) return false;
-        for (int y = 0; y < SIZE; y++)
-            if (outline[at(0, y)] || outline[at(SIZE - 1, y)]) return false;
-
-        // Every outline pixel must be connected (eight-neighbour drawing).
-        boolean[] connected = new boolean[TOTAL];
-        int[] queue = new int[TOTAL];
-        int head = 0, tail = 0;
-        int first = at(startX, startY);
-        connected[first] = true; queue[tail++] = first;
-        while (head < tail) {
-            int p = queue[head++], x = p % SIZE, y = p / SIZE;
-            for (int yy = Math.max(0, y - 1); yy <= Math.min(SIZE - 1, y + 1); yy++) {
-                for (int xx = Math.max(0, x - 1); xx <= Math.min(SIZE - 1, x + 1); xx++) {
-                    int j = at(xx, yy);
-                    if (outline[j] && !connected[j]) { connected[j] = true; queue[tail++] = j; }
-                }
+        ContourDetector.Result result = ContourDetector.detect(outline, SIZE);
+        if (result == null) return false;
+        System.arraycopy(result.outline, 0, outline, 0, TOTAL);
+        inside = result.interior;
+        points = 0;
+        for (boolean pixel : outline) if (pixel) points++;
+        // Preserve non-empty metadata for the older versioned storage reader.
+        for (int i = 0; i < TOTAL; i++) {
+            if (outline[i]) {
+                startX = i % SIZE;
+                startY = i / SIZE;
+                endX = startX;
+                endY = startY;
+                break;
             }
         }
-        if (tail != points) return false;
-        // An open spur/tail has a tip with fewer than two neighbouring stroke pixels.
-        for (int p=0; p<TOTAL; p++) if (outline[p]) {
-            int x=p%SIZE,y=p/SIZE,neighbours=0;
-            for (int yy=Math.max(0,y-1); yy<=Math.min(SIZE-1,y+1); yy++)
-                for (int xx=Math.max(0,x-1); xx<=Math.min(SIZE-1,x+1); xx++)
-                    if ((xx != x || yy != y) && outline[at(xx,yy)]) neighbours++;
-            if (neighbours < 2) return false;
-        }
-
-        // Flood from all 4 edges (4-neighbour) to find the exterior.
-        boolean[] outside = new boolean[TOTAL];
-        head = 0; tail = 0;
-        for (int x = 0; x < SIZE; x++) {
-            tail = floodOffer(at(x, 0), outside, queue, tail);
-            tail = floodOffer(at(x, SIZE - 1), outside, queue, tail);
-        }
-        for (int y = 0; y < SIZE; y++) {
-            tail = floodOffer(at(0, y), outside, queue, tail);
-            tail = floodOffer(at(SIZE - 1, y), outside, queue, tail);
-        }
-        while (head < tail) {
-            int p = queue[head++], x = p % SIZE, y = p / SIZE;
-            if (x > 0) tail = floodOffer(p - 1, outside, queue, tail);
-            if (x < SIZE - 1) tail = floodOffer(p + 1, outside, queue, tail);
-            if (y > 0) tail = floodOffer(p - SIZE, outside, queue, tail);
-            if (y < SIZE - 1) tail = floodOffer(p + SIZE, outside, queue, tail);
-        }
-        boolean[] candidate = new boolean[TOTAL];
-        int n = 0, seed = -1;
-        for (int i = 0; i < TOTAL; i++) {
-            candidate[i] = !outline[i] && !outside[i];
-            if (candidate[i]) { n++; if (seed < 0) seed = i; }
-        }
-        if (n < 4) return false;
-
-        // Exactly one interior region; disallow figures-of-eight / split shapes.
-        boolean[] visited = new boolean[TOTAL];
-        head = 0; tail = 0;
-        visited[seed] = true; queue[tail++] = seed;
-        while (head < tail) {
-            int p = queue[head++], x = p % SIZE, y = p / SIZE;
-            if (x > 0) tail = insideOffer(p - 1, candidate, visited, queue, tail);
-            if (x < SIZE - 1) tail = insideOffer(p + 1, candidate, visited, queue, tail);
-            if (y > 0) tail = insideOffer(p - SIZE, candidate, visited, queue, tail);
-            if (y < SIZE - 1) tail = insideOffer(p + SIZE, candidate, visited, queue, tail);
-        }
-        if (tail != n) return false;
-        inside = candidate;
         return true;
-    }
-    private int floodOffer(int i, boolean[] visited, int[] queue, int tail) {
-        if (!outline[i] && !visited[i]) { visited[i] = true; queue[tail++] = i; }
-        return tail;
-    }
-    private static int insideOffer(int i, boolean[] region, boolean[] seen, int[] queue, int tail) {
-        if (region[i] && !seen[i]) { seen[i] = true; queue[tail++] = i; }
-        return tail;
     }
     public boolean hasInterior() { return inside != null; }
     public void colorPixel(int x, int y, int color) {
