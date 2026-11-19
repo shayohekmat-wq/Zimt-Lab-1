@@ -92,6 +92,10 @@ public class BeetActivity extends Activity {
             " im Beet · " + n + " gespeicherte Gießvorgänge");
         bed.invalidate();
     }
+    @Override protected void onPause() {
+        if (bed != null) bed.cancelAll(); // no watering can continue while backgrounded
+        super.onPause();
+    }
     @Override protected void onDestroy() {
         if (bed != null) bed.cancelAll();
         for (Bitmap b : sprites.values()) if (b != null && !b.isRecycled()) b.recycle();
@@ -243,6 +247,7 @@ public class BeetActivity extends Activity {
             if (ev.getPointerCount()>1) { cancelAll(); return true; }
             float x=worldX(ev.getX()), y=worldY(ev.getY());
             if (action==MotionEvent.ACTION_DOWN) {
+                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
                 pointerDown=true; initialX=x;initialY=y;pointerX=x;pointerY=y;
                 if (wateringMode) {
                     startWater(plantAt(x,y));
@@ -278,7 +283,9 @@ public class BeetActivity extends Activity {
             }
             if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL) {
                 if (action==MotionEvent.ACTION_UP && dragging && moving != null) save(moving);
-                cancelAll();return true;
+                cancelAll();
+                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
+                return true;
             }
             return true;
         }
