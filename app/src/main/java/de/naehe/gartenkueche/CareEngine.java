@@ -74,10 +74,9 @@ public final class CareEngine {
             }
         }
         if(!p.dead) maybeEvolve(p, now, result);
-        if(p.lastEvaluatedAtUtc != now) {
-            p.lastEvaluatedAtUtc = now;
-            result.changed = true;
-        }
+        // Update the resume timestamp in memory without forcing a disk write.
+        // Save only after a real care window, stage or watering event changes.
+        p.lastEvaluatedAtUtc = now;
         return result;
     }
     private static void violation(PlantStore.Plant p, long when, Result r, String reason) {
