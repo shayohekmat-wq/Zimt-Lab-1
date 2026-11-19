@@ -139,7 +139,7 @@ public class EditorActivity extends Activity {
         tip = Ui.text(this,
                 draft.colorMode
                     ? "Schritt B: Male nur innerhalb deiner geschlossenen Kontur. Wähle eine der 40 Farben."
-                    : "Schritt A: Male eine geschlossene dunkelviolette Kontur im 300×300-Raster. Anfang und Ende müssen sich berühren.",
+                    : "Schritt A: Zeichne mit beliebig vielen Strichen einen Umriss. Sobald eine erkennbare Innenfläche entsteht, kannst du mit Ausmalen weitermachen. Kleine Lücken werden automatisch geschlossen.",
                 14, false);
         Ui.add(page, tip, 12);
         paintingSurface = new PixelCanvas();
@@ -206,8 +206,8 @@ public class EditorActivity extends Activity {
         next.setOnClickListener(v -> {
             if (!draft.colorMode) {
                 if (!draft.active.validate()) {
-                    new AlertDialog.Builder(this).setTitle("Kontur noch nicht geschlossen")
-                        .setMessage("Bitte zeichne einen einzigen, verbundenen Umriss ohne Randberührung. Zeichne bis zum Startpixel zurück. Ein eindeutiges Inneres muss vorhanden sein.")
+                    new AlertDialog.Builder(this).setTitle("Noch keine Innenfläche erkannt")
+                        .setMessage("Mehrere angesetzte Linien, überstehende Enden und Kreuzungen sind erlaubt. Es muss lediglich eine ausreichend große, wirklich eingeschlossene Fläche vorhanden sein. Kleine Lücken bis vier Pixel werden automatisch geschlossen.")
                         .setPositiveButton("Verstanden", null).show();
                     return;
                 }
