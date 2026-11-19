@@ -346,6 +346,7 @@ public class EditorActivity extends Activity {
         }
         @Override public boolean onTouchEvent(MotionEvent e) {
             int action = e.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN && getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
             if (action == MotionEvent.ACTION_POINTER_DOWN && e.getPointerCount() >= 2) {
                 panning=true; gestureBlocked=true;
                 panX=(e.getX(0)+e.getX(1))/2; panY=(e.getY(0)+e.getY(1))/2;
@@ -363,7 +364,9 @@ public class EditorActivity extends Activity {
             }
             if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_UP) {
                 if (previousX >= 0) scheduleSave();
-                previousX=-1; previousY=-1; panning=false; gestureBlocked=false; return true;
+                previousX=-1; previousY=-1; panning=false; gestureBlocked=false;
+                if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
+                return true;
             }
             if (gestureBlocked || panning || (action!=MotionEvent.ACTION_DOWN && action!=MotionEvent.ACTION_MOVE))
                 return true;
