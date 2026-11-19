@@ -45,14 +45,26 @@ public class EditorActivity extends Activity {
     private LinearLayout page;
     private TextView tip;
     private int brush = COLORS[26];
-    private boolean erase, bucket, finished;
+    private boolean erase, bucket, finished, committing;
+    private int screenGeneration;
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         store = new PlantStore(this);
-        if (getIntent().getBooleanExtra("resume_draft", false)) draft = store.loadDraft();
-        if (draft == null) draft = PlantStore.Draft.empty(getIntent().getIntExtra("stage_count", 1));
-        buildScreen();
+        if (getIntent().getBooleanExtra("resume_draft", false)) {
+            setContentView(Ui.text(this,"Gespeicherter Entwurf wird geladen …",20,true));
+            AppIo.execute(()->{
+                PlantStore.Draft loaded=store.loadDraft();
+                AppIo.onMain(()->{
+                    if(isFinishing() || isDestroyed())return;
+                    draft=loaded!=null ? loaded : PlantStore.Draft.empty(1);
+                    buildScreen();
+                });
+            });
+        } else {
+            draft=PlantStore.Draft.empty(getIntent().getIntExtra("stage_count", 1));
+            buildScreen();
+        }
     }
 
     @Override protected void onPause() {
@@ -60,10 +72,26 @@ public class EditorActivity extends Activity {
         if (!finished) persistDraft();
         super.onPause();
     }
+    private PlantStore.Draft draftSnapshot() {
+        PlantStore.Draft snapshot=PlantStore.Draft.empty(draft.requestedCount);
+        snapshot.stages.addAll(draft.stages); // completed stages are immutable
+        snapshot.difficulties.addAll(draft.difficulties);
+        snapshot.active=draft.active.copy();
+        snapshot.colorMode=draft.colorMode;
+        snapshot.drawingDeath=draft.drawingDeath;
+        return snapshot;
+    }
     private void persistDraft() {
-        if (finished || draft == null) return;
-        try { store.saveDraft(draft); }
-        catch (IOException e) { Toast.makeText(this, "Speichern fehlgeschlagen: " + e.getMessage(), Toast.LENGTH_LONG).show(); }
+        if (finished || committing || draft == null) return;
+        final PlantStore.Draft snapshot=draftSnapshot();
+        AppIo.execute(()->{
+            try { store.saveDraft(snapshot); }
+            catch(IOException e){
+                android.util.Log.e("GartenKueche","Autosave failed",e);
+                AppIo.onMain(()->{if(!isFinishing() && !isDestroyed())
+                    Toast.makeText(this,"Entwurf konnte nicht gespeichert werden.",Toast.LENGTH_LONG).show();});
+            }
+        });
     }
     private void scheduleSave() {
         saveHandler.removeCallbacks(saveTask);
@@ -72,7 +100,7 @@ public class EditorActivity extends Activity {
     private void freshUndo() { undo.clear(); redo.clear(); }
     private void history() {
         undo.addLast(draft.active.copy());
-        while (undo.size() > 12) undo.removeFirst();
+        while (undo.size() > 8) undo.removeFirst();
         redo.clear();
     }
     private void undoAction() {
@@ -92,6 +120,8 @@ public class EditorActivity extends Activity {
     private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }
 
     private void buildScreen() {
+        if (draft == null) return;
+        screenGeneration++;
         paintingSurface = null;
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
@@ -244,26 +274,37 @@ public class EditorActivity extends Activity {
             .show();
     }
     private void completePlant(PlantArt death) {
-        PlantStore.Plant plant = new PlantStore.Plant();
-        for (int i=0;i<draft.stages.size();i++) {
-            plant.stages.add(draft.stages.get(i).copy());
-            plant.difficulties.add(draft.difficulties.get(i));
-        }
-        plant.death = death;
-        try {
-            store.savePlant(plant);
-            finished = true;
-            saveHandler.removeCallbacks(saveTask);
-            store.clearDraft();
-            toast("Pflanze dauerhaft im Beet gespeichert!");
-            Intent beet = new Intent(this, BeetActivity.class);
-            beet.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-            startActivity(beet);
-            finish();
-        } catch (IOException error) {
-            new AlertDialog.Builder(this).setTitle("Speicherung fehlgeschlagen")
-                .setMessage(error.toString()).setPositiveButton("OK", null).show();
-        }
+        if(committing || finished)return;
+        committing=true;
+        PlantStore.Plant plant=new PlantStore.Plant();
+        plant.stages.addAll(draft.stages); // immutable once stage is complete
+        plant.difficulties.addAll(draft.difficulties);
+        plant.death=death;
+        Toast.makeText(this,"Pflanze wird sicher gespeichert …",Toast.LENGTH_SHORT).show();
+        AppIo.execute(()->{
+            IOException failure=null;
+            try{
+                store.savePlant(plant);
+                store.clearDraft();
+            }catch(IOException e){failure=e;}
+            final IOException error=failure;
+            AppIo.onMain(()->{
+                if(isFinishing() || isDestroyed())return;
+                committing=false;
+                if(error!=null){
+                    new AlertDialog.Builder(this).setTitle("Speicherung fehlgeschlagen")
+                        .setMessage(error.toString()).setPositiveButton("OK",null).show();
+                    return;
+                }
+                finished=true;
+                saveHandler.removeCallbacks(saveTask);
+                Toast.makeText(this,"Pflanze gespeichert!",Toast.LENGTH_SHORT).show();
+                Intent beet=new Intent(this,BeetActivity.class);
+                beet.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(beet);
+                finish();
+            });
+        });
     }
 
     private final class PixelCanvas extends View {
