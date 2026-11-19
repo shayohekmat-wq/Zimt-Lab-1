@@ -136,7 +136,7 @@ public final class PlantStore {
         ArrayList<Plant> plants = new ArrayList<>();
         File[] files = root.listFiles((dir, name) -> name.startsWith("plant_") && name.endsWith(".bin.gz"));
         if (files == null) return plants;
-        Arrays.sort(files, Comparator.comparing(File::getName));
+        Arrays.sort(files, (first, second) -> first.getName().compareTo(second.getName()));
         for (File f : files) {
             try {
                 Plant plant = read(f, (in, version) -> {
