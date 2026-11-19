@@ -312,10 +312,12 @@ public class EditorActivity extends Activity {
         private final Paint overlayPaint = new Paint();
         private final Paint gridPaint = new Paint();
         private final Paint borderPaint = new Paint();
+        private final Paint backgroundPaint = new Paint();
+        private final int[] renderScratch = new int[PlantArt.TOTAL];
         private final Rect src = new Rect();
         private final RectF dst = new RectF();
         private Bitmap cached, previous;
-        private boolean dirty = true, panning;
+        private boolean dirty = false, panning;
         private boolean gestureBlocked;
         private int zoom = 1, ox, oy, previousX=-1, previousY=-1;
         private float panX, panY;
@@ -323,6 +325,8 @@ public class EditorActivity extends Activity {
         PixelCanvas() {
             super(EditorActivity.this);
             bmpPaint.setFilterBitmap(false);
+            backgroundPaint.setColor(0xfffdfaf4);
+            cached=draft.active.bitmap();
             overlayPaint.setFilterBitmap(false);
             overlayPaint.setAlpha(51); // 20% opacity
             gridPaint.setColor(0x55847A70);
@@ -337,7 +341,8 @@ public class EditorActivity extends Activity {
             int w = MeasureSpec.getSize(wSpec);
             setMeasuredDimension(w, w);
         }
-        void dirty() { dirty = true; invalidate(); }
+        // Resynchronize the same bitmap only after Undo, Redo or a bulk fill.
+        void dirty() { dirty = true; postInvalidateOnAnimation(); }
         void zoom(boolean bigger) {
             int before = zoom;
             zoom = bigger ? zoom == 1 ? 2 : zoom == 2 ? 5 : 10 :
@@ -356,14 +361,11 @@ public class EditorActivity extends Activity {
             int visible = PlantArt.SIZE / zoom;
             src.set(ox, oy, ox + visible, oy + visible);
             dst.set(0, 0, side, side);
-            Paint bg = new Paint();
-            bg.setColor(0xfffdfaf4);
-            c.drawRect(dst, bg);
+            c.drawRect(dst, backgroundPaint);
             if (previous != null) c.drawBitmap(previous, src, dst, overlayPaint);
-            if (dirty || cached == null) {
-                if (cached != null) cached.recycle();
-                cached = draft.active.bitmap();
-                dirty = false;
+            if (dirty) {
+                draft.active.renderInto(cached,renderScratch);
+                dirty=false;
             }
             c.drawBitmap(cached, src, dst, bmpPaint);
             int step = zoom >= 5 ? 1 : zoom >= 2 ? 5 : 10;
@@ -421,7 +423,7 @@ public class EditorActivity extends Activity {
                 drawLine(previousX,previousY,x,y);
                 previousX=x;previousY=y;
             }
-            dirty();return true;
+            postInvalidateOnAnimation();return true;
         }
         private void drawLine(int x0,int y0,int x1,int y1) {
             int dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;
@@ -436,8 +438,13 @@ public class EditorActivity extends Activity {
         }
         private void apply(int x,int y) {
             if(!draft.colorMode) draft.active.drawContour(x,y);
-            else if(bucket) draft.active.fillRegion(x,y,brush);
-            else draft.active.colorPixel(x,y,erase ? Color.TRANSPARENT : brush);
+            else if(bucket){
+                draft.active.fillRegion(x,y,brush);
+                dirty=true; // bulk fill is rare; rerender pixels into the SAME bitmap
+                return;
+            }else draft.active.colorPixel(x,y,erase ? Color.TRANSPARENT : brush);
+            // Touch strokes update only the changed pixel, not the whole 300x300 bitmap.
+            cached.setPixel(x,y,draft.active.renderedPixel(x,y));
         }
         @Override protected void onDetachedFromWindow() {
             if (cached != null) { cached.recycle(); cached=null; }
