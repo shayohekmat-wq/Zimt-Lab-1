@@ -1,7 +1,6 @@
 package de.naehe.gartenkueche;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 
 /**
  * Finds a real inside/outside boundary in an arbitrary collection of pixel strokes.
@@ -43,19 +42,28 @@ public final class ContourDetector {
                 if((xx!=x || yy!=y) && ink[yy*size+xx]) n++;
             if(n<=1) tips.add(i);
         }
-        // Cap unstructured scribbles, keep this bounded on low-end devices.
-        if(tips.size() > 160) return null;
-        for(int a=0;a<tips.size();a++) {
-            int start=tips.get(a), x0=start%size,y0=start/size;
-            for(int b=a+1;b<tips.size();b++) {
-                int end=tips.get(b),x1=end%size,y1=end/size;
-                int dx=x1-x0,dy=y1-y0;
-                if(dx*dx+dy*dy>16 || dx*dx+dy*dy<2) continue;
-                boolean[] candidate=ink.clone();
-                connect(candidate,size,x0,y0,x1,y1);
-                Result healed=detectEnclosure(candidate,size,true);
-                if(healed!=null) return healed;
+        // Only short candidate connections can heal a genuine <=4px gap.
+        // Compute pair distances once, rank nearest tips first. At most 24
+        // complete flood-fills are allowed (previously up to 12,720).
+        if(tips.size()>160) return null;
+        ArrayList<int[]> possible=new ArrayList<>();
+        for(int a=0;a<tips.size();a++){
+            int start=tips.get(a),x0=start%size,y0=start/size;
+            for(int b=a+1;b<tips.size();b++){
+                int end=tips.get(b),dx=end%size-x0,dy=end/size-y0;
+                int d2=dx*dx+dy*dy;
+                if(d2>=2 && d2<=16) possible.add(new int[]{a,b,d2});
             }
+        }
+        possible.sort((a,b)->Integer.compare(a[2],b[2]));
+        int trials=Math.min(24,possible.size());
+        for(int t=0;t<trials;t++){
+            int[] pair=possible.get(t);
+            int start=tips.get(pair[0]),end=tips.get(pair[1]);
+            boolean[] candidate=ink.clone();
+            connect(candidate,size,start%size,start/size,end%size,end/size);
+            Result healed=detectEnclosure(candidate,size,true);
+            if(healed!=null)return healed;
         }
         return null;
     }
