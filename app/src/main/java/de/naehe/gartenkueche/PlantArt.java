@@ -84,6 +84,14 @@ public final class PlantArt {
             }
         }
         if (tail != points) return false;
+        // An open spur/tail has a tip with fewer than two neighbouring stroke pixels.
+        for (int p=0; p<TOTAL; p++) if (outline[p]) {
+            int x=p%SIZE,y=p/SIZE,neighbours=0;
+            for (int yy=Math.max(0,y-1); yy<=Math.min(SIZE-1,y+1); yy++)
+                for (int xx=Math.max(0,x-1); xx<=Math.min(SIZE-1,x+1); xx++)
+                    if ((xx != x || yy != y) && outline[at(xx,yy)]) neighbours++;
+            if (neighbours < 2) return false;
+        }
 
         // Flood from all 4 edges (4-neighbour) to find the exterior.
         boolean[] outside = new boolean[TOTAL];
