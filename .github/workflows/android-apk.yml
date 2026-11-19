@@ -35,6 +35,6 @@ jobs:
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: Garten-und-Kueche-Lab-0.0.2-Debug-APK
+          name: Garten-und-Kueche-Lab-0.0.3-Parallel-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
