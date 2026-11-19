@@ -68,8 +68,8 @@ public final class CareEngineTest {
         ok(!over.dead && over.strikesAtStageOne==0,"allowed daily water must not hurt");
         CareEngine.water(over,time+5000L+allowed);
         ok(over.strikesAtStageOne==1,"first overwater penalty");
-        CareEngine.water(over,time+6000L+allowed);
-        ok(over.dead,"second overwatering penalty on stage one");
+        for(int i=0;i<=allowed;i++) CareEngine.water(over,time+6000L+allowed+i);
+        ok(over.dead,"second overwatering penalty on stage one after exceeding new phase limit");
 
         PlantStore.Plant solo=plant(0);
         CareEngine.evaluate(solo,time);
