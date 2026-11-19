@@ -37,7 +37,10 @@ public class BeetActivity extends Activity {
     private final List<PlantStore.Plant> plants = new ArrayList<>();
     private final LinkedHashMap<String,Bitmap> sprites = new LinkedHashMap<>(20,0.75f,true);
     private final HashSet<String> pendingSprites = new HashSet<>();
-    private static final int MAX_CACHED_SPRITES = 14;
+    // Hard cap avoids unlimited GPU/native bitmap growth on older devices.
+    // Do not enqueue more sprites than fit, otherwise large beets would
+    // endlessly render/evict/re-render the same images each frame.
+    private static final int MAX_CACHED_SPRITES = 40;
     private PlantStore store;
     private BeetCanvas bed;
     private TextView status, rules, hint;
@@ -157,6 +160,8 @@ public class BeetActivity extends Activity {
         String k=key(plant);
         Bitmap cached=sprites.get(k);
         if(cached!=null && !cached.isRecycled())return cached;
+        if(!pendingSprites.contains(k) &&
+            sprites.size()+pendingSprites.size()>=MAX_CACHED_SPRITES) return null;
         if(pendingSprites.add(k)){
             final int generation=loadGeneration;
             final PlantArt artwork=plant.dead ? plant.death : plant.stages.get(plant.stage-1);
