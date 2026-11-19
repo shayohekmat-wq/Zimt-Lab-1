@@ -2,6 +2,7 @@ package de.naehe.gartenkueche;
 
 import android.content.Context;
 import android.util.Log;
+import android.util.AtomicFile;
 import java.io.*;
 import java.util.*;
 import java.util.zip.GZIPInputStream;
@@ -84,6 +85,8 @@ public final class PlantStore {
                 d.colorMode = in.readBoolean();
                 d.drawingDeath = in.readBoolean();
                 d.active = PlantArt.read(in);
+                if (d.colorMode && !d.active.validate())
+                    throw new IOException("Invalid colored draft mask");
                 return d;
             });
         } catch (IOException error) {
@@ -175,6 +178,7 @@ public final class PlantStore {
                         throw new IOException("Bad plant properties");
                     return p;
                 });
+                loadState(plant); // v0.0.5 status sidecar overrides old full-file snapshot
                 plants.add(plant);
             } catch(IOException ex) { Log.e(TAG, "Skipping corrupted plant record: "+f.getName(), ex); }
         }
@@ -184,27 +188,125 @@ public final class PlantStore {
     private interface Writer { void write(DataOutputStream out) throws IOException; }
     private interface Reader<T> { T read(DataInputStream in, int version) throws IOException; }
     private void write(File destination, Writer writer) throws IOException {
-        File temp = new File(root, destination.getName() + ".tmp");
-        try (FileOutputStream stream = new FileOutputStream(temp);
-             GZIPOutputStream gzip = new GZIPOutputStream(stream);
-             DataOutputStream out = new DataOutputStream(gzip)) {
+        AtomicFile atomic = new AtomicFile(destination);
+        FileOutputStream stream = atomic.startWrite();
+        try {
+            GZIPOutputStream gzip = new GZIPOutputStream(stream);
+            DataOutputStream out = new DataOutputStream(gzip);
             out.writeInt(MAGIC);
             out.writeInt(VERSION);
             writer.write(out);
-        }
-        // Android/Linux rename is atomic within the same directory.
-        if (!temp.renameTo(destination)) {
-            if (destination.exists() && destination.delete() && temp.renameTo(destination)) return;
-            throw new IOException("Atomic write failed");
+            out.flush();
+            gzip.finish();
+            atomic.finishWrite(stream);
+        } catch (IOException | RuntimeException error) {
+            atomic.failWrite(stream);
+            throw error;
         }
     }
     private <T> T read(File source, Reader<T> reader) throws IOException {
         try (DataInputStream in = new DataInputStream(
-                new GZIPInputStream(new FileInputStream(source)))) {
+                new GZIPInputStream(new AtomicFile(source).openRead()))) {
             if (in.readInt() != MAGIC) throw new IOException("Unsupported storage magic");
             int version = in.readInt();
             if(version != 2 && version != VERSION) throw new IOException("Unsupported storage version");
             return reader.read(in, version);
         }
     }
+    /**
+     * Small mutable plant state. Save this instead of the multi-stage artwork
+     * when watering, dragging, or advancing care windows.
+     * Capture on the UI thread, write the immutable snapshot on the IO worker.
+     */
+    public static final class StateSnapshot {
+        public final String id;
+        public final int stage, x, y, wateringCount;
+        public final boolean dead;
+        public final long lastWaterAtUtc, stageEnteredAtUtc, windowStartUtc,
+                windowEndUtc, lastEvaluatedAtUtc, windowOrdinal;
+        public final int windowWaterings, minWater, maxWater, windowDays,
+                evolutionDays, strikesAtStageOne;
+        public final long[] waterEventsUtc;
+        private StateSnapshot(Plant p) {
+            id=p.id; stage=p.stage; x=p.x; y=p.y; wateringCount=p.wateringCount;
+            dead=p.dead; lastWaterAtUtc=p.lastWaterAtUtc;
+            stageEnteredAtUtc=p.stageEnteredAtUtc; windowStartUtc=p.windowStartUtc;
+            windowEndUtc=p.windowEndUtc; lastEvaluatedAtUtc=p.lastEvaluatedAtUtc;
+            windowOrdinal=p.windowOrdinal; windowWaterings=p.windowWaterings;
+            minWater=p.minWater; maxWater=p.maxWater;
+            windowDays=p.windowDays; evolutionDays=p.evolutionDays;
+            strikesAtStageOne=p.strikesAtStageOne;
+            waterEventsUtc=new long[p.waterEventsUtc.size()];
+            for(int i=0;i<waterEventsUtc.length;i++) waterEventsUtc[i]=p.waterEventsUtc.get(i);
+        }
+        public static StateSnapshot capture(Plant p) { return new StateSnapshot(p); }
+        void restore(Plant p) throws IOException {
+            if(!id.equals(p.id) || stage<1 || stage>p.stages.size() ||
+               x<0 || x>800 || y<0 || y>600 || wateringCount<0 ||
+               strikesAtStageOne<0 || waterEventsUtc.length>100000)
+                throw new IOException("Invalid plant state");
+            p.stage=stage;p.x=x;p.y=y;p.wateringCount=wateringCount;p.dead=dead;
+            p.lastWaterAtUtc=lastWaterAtUtc;p.stageEnteredAtUtc=stageEnteredAtUtc;
+            p.windowStartUtc=windowStartUtc;p.windowEndUtc=windowEndUtc;
+            p.lastEvaluatedAtUtc=lastEvaluatedAtUtc;p.windowOrdinal=windowOrdinal;
+            p.windowWaterings=windowWaterings;p.minWater=minWater;p.maxWater=maxWater;
+            p.windowDays=windowDays;p.evolutionDays=evolutionDays;
+            p.strikesAtStageOne=strikesAtStageOne;
+            p.waterEventsUtc.clear();
+            for(long t:waterEventsUtc)p.waterEventsUtc.add(t);
+        }
+    }
+
+    public synchronized void saveState(StateSnapshot snapshot) throws IOException {
+        if(!snapshot.id.matches("[A-Za-z0-9-]{1,64}"))throw new IOException("Invalid id");
+        AtomicFile file=new AtomicFile(new File(root,"state_"+snapshot.id+".bin"));
+        FileOutputStream stream=file.startWrite();
+        try {
+            DataOutputStream out=new DataOutputStream(new BufferedOutputStream(stream));
+            out.writeInt(0x5A535435); // ZST5
+            out.writeInt(1);
+            out.writeUTF(snapshot.id);
+            out.writeInt(snapshot.stage);out.writeInt(snapshot.x);out.writeInt(snapshot.y);
+            out.writeInt(snapshot.wateringCount);out.writeBoolean(snapshot.dead);
+            out.writeLong(snapshot.lastWaterAtUtc);out.writeLong(snapshot.stageEnteredAtUtc);
+            out.writeLong(snapshot.windowStartUtc);out.writeLong(snapshot.windowEndUtc);
+            out.writeLong(snapshot.lastEvaluatedAtUtc);out.writeLong(snapshot.windowOrdinal);
+            out.writeInt(snapshot.windowWaterings);out.writeInt(snapshot.minWater);
+            out.writeInt(snapshot.maxWater);out.writeInt(snapshot.windowDays);
+            out.writeInt(snapshot.evolutionDays);out.writeInt(snapshot.strikesAtStageOne);
+            out.writeInt(snapshot.waterEventsUtc.length);
+            for(long time:snapshot.waterEventsUtc)out.writeLong(time);
+            out.flush();
+            file.finishWrite(stream);
+        }catch(IOException | RuntimeException error){
+            file.failWrite(stream);
+            throw error;
+        }
+    }
+    private void loadState(Plant p) {
+        File path=new File(root,"state_"+p.id+".bin");
+        if(!path.exists())return; // pre-0.0.5 archive or new definition
+        try(DataInputStream in=new DataInputStream(new BufferedInputStream(
+                new AtomicFile(path).openRead()))) {
+            if(in.readInt()!=0x5A535435 || in.readInt()!=1)throw new IOException("Bad state schema");
+            Plant copy=new Plant();
+            copy.id=in.readUTF();
+            copy.stage=in.readInt();copy.x=in.readInt();copy.y=in.readInt();
+            copy.wateringCount=in.readInt();copy.dead=in.readBoolean();
+            copy.lastWaterAtUtc=in.readLong();copy.stageEnteredAtUtc=in.readLong();
+            copy.windowStartUtc=in.readLong();copy.windowEndUtc=in.readLong();
+            copy.lastEvaluatedAtUtc=in.readLong();copy.windowOrdinal=in.readLong();
+            copy.windowWaterings=in.readInt();copy.minWater=in.readInt();
+            copy.maxWater=in.readInt();copy.windowDays=in.readInt();
+            copy.evolutionDays=in.readInt();copy.strikesAtStageOne=in.readInt();
+            int count=in.readInt();
+            if(count<0 || count>100000)throw new IOException("Bad history length");
+            for(int i=0;i<count;i++)copy.waterEventsUtc.add(in.readLong());
+            // Snapshot on a state-only copy, then restore with validation.
+            StateSnapshot.capture(copy).restore(p);
+        }catch(IOException error){
+            Log.e(TAG,"State unreadable; keeping base plant archive: "+p.id,error);
+        }
+    }
+
 }
