@@ -16,6 +16,7 @@ public final class PlantArt {
     final int[] pigments = new int[TOTAL]; // transparent=unset, any solid ARGB is painted
     int startX = -1, startY = -1, endX = -1, endY = -1, points = 0;
     private boolean[] inside = null;
+    boolean grayOutline = false;
 
     public PlantArt copy() {
         PlantArt c = new PlantArt();
@@ -24,13 +25,14 @@ public final class PlantArt {
         c.startX = startX; c.startY = startY;
         c.endX = endX; c.endY = endY; c.points = points;
         if (inside != null) c.inside = inside.clone();
+        c.grayOutline = grayOutline;
         return c;
     }
     public void clear() {
         Arrays.fill(outline, false);
         Arrays.fill(pigments, 0);
         startX = -1; startY = -1; endX = -1; endY = -1; points = 0;
-        inside = null;
+        inside = null; grayOutline = false;
     }
     private static int at(int x, int y) { return y * SIZE + x; }
     public void drawContour(int x, int y) {
@@ -169,13 +171,14 @@ public final class PlantArt {
     }
     public Bitmap bitmap() {
         int[] rgba = new int[TOTAL];
-        for (int i = 0; i < TOTAL; i++) rgba[i] = outline[i] ? PURPLE : pigments[i];
+        for (int i = 0; i < TOTAL; i++) rgba[i] = outline[i] ? (grayOutline ? Color.rgb(86, 86, 86) : PURPLE) : pigments[i];
         Bitmap bmp = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888);
         bmp.setPixels(rgba, 0, SIZE, 0, 0, SIZE, SIZE);
         return bmp;
     }
     public PlantArt grayCopy() {
         PlantArt a = copy();
+        a.grayOutline = true;
         for (int i = 0; i < TOTAL; i++) {
             int v = pigments[i];
             if (Color.alpha(v) == 0) continue;
@@ -185,6 +188,7 @@ public final class PlantArt {
         return a;
     }
     public void write(DataOutputStream stream) throws IOException {
+        stream.writeBoolean(grayOutline);
         stream.writeInt(startX); stream.writeInt(startY); stream.writeInt(endX); stream.writeInt(endY);
         stream.writeInt(points);
         for (boolean b : outline) stream.writeBoolean(b);
@@ -192,6 +196,7 @@ public final class PlantArt {
     }
     public static PlantArt read(DataInputStream stream) throws IOException {
         PlantArt a = new PlantArt();
+        a.grayOutline = stream.readBoolean();
         a.startX=stream.readInt(); a.startY=stream.readInt(); a.endX=stream.readInt();
         a.endY=stream.readInt(); a.points=stream.readInt();
         if (a.points < 0 || a.points > TOTAL) throw new IOException("Invalid outline length");
