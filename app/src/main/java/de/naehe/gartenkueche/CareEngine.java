@@ -51,7 +51,20 @@ public final class CareEngine {
         // Each old care window is processed exactly once, even after weeks offline.
         // Cap avoids malformed timestamps freezing the UI; remaining backlog is caught up on resume.
         int checked = 0;
-        while (!p.dead && p.windowEndUtc <= now && checked++ < 2048) {
+        while (!p.dead && checked++ < 2048) {
+            long due=plusDays(p.stageEnteredAtUtc, p.evolutionDays);
+            // If already cared for, evolution also happens while app is closed,
+            // at the original due time rather than only at the next launch.
+            if (p.stage < p.stages.size() && due <= now &&
+                    due <= p.windowEndUtc && p.windowWaterings >= p.minWater) {
+                p.stage++;
+                p.strikesAtStageOne=0;
+                enterStage(p, due);
+                result.changed=true;
+                result.events.add("Die Pflanze hat Evolutionsstufe " + p.stage + " erreicht.");
+                continue;
+            }
+            if (p.windowEndUtc > now) break;
             long deadline = p.windowEndUtc;
             if(p.windowWaterings < p.minWater) {
                 violation(p, deadline, result, "Nicht ausreichend gegossen.");
