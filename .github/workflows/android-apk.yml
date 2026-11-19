@@ -33,6 +33,9 @@ jobs:
           java -cp build/care-test de.naehe.gartenkueche.CareEngineTest
       - name: Build independent APK (Android 6+)
         run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Verify package allows side-by-side installation
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab3'"
       - uses: actions/upload-artifact@v4
         with:
           name: Garten-und-Kueche-Lab-0.0.3-Parallel-APK
