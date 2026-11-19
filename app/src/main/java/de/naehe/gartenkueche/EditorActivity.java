@@ -1,6 +1,8 @@
 package de.naehe.gartenkueche;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -8,334 +10,395 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.GridLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-import java.util.Arrays;
+import java.io.IOException;
+import java.util.ArrayDeque;
 
+/** A/B wizard for all stages and custom death artwork, using real logical pixels. */
 public class EditorActivity extends Activity {
-    private PixelCanvas pixelCanvas;
-    private Button validate;
-    private Button fill;
-    private GridLayout palette;
-    private TextView hint;
-    private boolean colorMode = false;
-    private static final int PURPLE = Color.rgb(77, 30, 113);
     private static final int[] COLORS = {
         0xFFFFFFFF,0xFFDAD5C9,0xFFA6A6A6,0xFF555555,0xFF1D1D1D,
         0xFFFAE6A0,0xFFF7BC45,0xFFF28433,0xFFD83B37,0xFF9F1839,
         0xFFFFB6A4,0xFFF5799A,0xFFB852A5,0xFF8052BD,0xFF472476,
-        0xFFB3A3DB,0xFF88BDEA,0xFF398CD1,0xFF2252A4,0xFF12365B,
         0xFFA8E2D5,0xFF54BCB1,0xFF218A8C,0xFF145D67,0xFFD9DF71,
         0xFFA8CB4B,0xFF6FA548,0xFF38733C,0xFF1E4A34,0xFFA0BD8C,
         0xFFE8C4A3,0xFFC89062,0xFFA36540,0xFF753B25,0xFF452A25,
         0xFFFAE7D7,0xFFDDAA8F,0xFFAD7471,0xFF75474E,0xFF322932
     };
+    private final ArrayDeque<PlantArt> undo = new ArrayDeque<>();
+    private final ArrayDeque<PlantArt> redo = new ArrayDeque<>();
+    private final Handler saveHandler = new Handler(Looper.getMainLooper());
+    private final Runnable saveTask = this::persistDraft;
+    private PlantStore store;
+    private PlantStore.Draft draft;
+    private PixelCanvas paintingSurface;
+    private LinearLayout page;
+    private TextView tip;
+    private int brush = COLORS[26];
+    private boolean erase, bucket, finished;
 
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        int stageCount = Math.max(1, Math.min(10, getIntent().getIntExtra("stage_count", 1)));
+    @Override public void onCreate(Bundle b) {
+        super.onCreate(b);
+        store = new PlantStore(this);
+        if (getIntent().getBooleanExtra("resume_draft", false)) draft = store.loadDraft();
+        if (draft == null) draft = PlantStore.Draft.empty(getIntent().getIntExtra("stage_count", 1));
+        buildScreen();
+    }
+
+    @Override protected void onPause() {
+        saveHandler.removeCallbacks(saveTask);
+        if (!finished) persistDraft();
+        super.onPause();
+    }
+    private void persistDraft() {
+        if (finished || draft == null) return;
+        try { store.saveDraft(draft); }
+        catch (IOException e) { Toast.makeText(this, "Speichern fehlgeschlagen: " + e.getMessage(), Toast.LENGTH_LONG).show(); }
+    }
+    private void scheduleSave() {
+        saveHandler.removeCallbacks(saveTask);
+        saveHandler.postDelayed(saveTask, 750);
+    }
+    private void freshUndo() { undo.clear(); redo.clear(); }
+    private void history() {
+        undo.addLast(draft.active.copy());
+        while (undo.size() > 12) undo.removeFirst();
+        redo.clear();
+    }
+    private void undoAction() {
+        if (undo.isEmpty()) { toast("Nichts rückgängig zu machen"); return; }
+        redo.addLast(draft.active.copy());
+        draft.active = undo.removeLast();
+        paintingSurface.dirty();
+        scheduleSave();
+    }
+    private void redoAction() {
+        if (redo.isEmpty()) { toast("Nichts zu wiederholen"); return; }
+        undo.addLast(draft.active.copy());
+        draft.active = redo.removeLast();
+        paintingSurface.dirty();
+        scheduleSave();
+    }
+    private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }
+
+    private void buildScreen() {
+        paintingSurface = null;
         ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
         scroll.setBackgroundColor(Ui.BACKGROUND);
-        LinearLayout column = Ui.column(this);
-        column.setPadding(Ui.dp(this, 12), Ui.dp(this, 20), Ui.dp(this, 12), Ui.dp(this, 20));
-        scroll.addView(column);
-
-        Ui.add(column, Ui.text(this, "Pflanzen-Kontur · Stufe 1 / " + stageCount, 22, true), 8);
-        hint = Ui.text(this,
-                "300 × 300 Raster. Zeichne mit einem Zug eine geschlossene dunkelviolette Kontur. Zwei Finger verschieben die vergrößerte Fläche.",
-                13, false);
-        Ui.add(column, hint, 12);
-
-        pixelCanvas = new PixelCanvas();
-        column.addView(pixelCanvas, Ui.spacing(this, -1, -2, 9));
-
-        LinearLayout tools = Ui.row(this);
-        Button zoomOut = Ui.button(this, "−");
-        Button zoomIn = Ui.button(this, "+");
-        Button reset = Ui.button(this, "Leeren");
-        tools.addView(zoomOut, new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1));
-        LinearLayout.LayoutParams plusParams = new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 1);
-        plusParams.leftMargin = Ui.dp(this, 6);
-        tools.addView(zoomIn, plusParams);
-        LinearLayout.LayoutParams resetParams = new LinearLayout.LayoutParams(0, Ui.dp(this, 48), 2);
-        resetParams.leftMargin = Ui.dp(this, 6);
-        tools.addView(reset, resetParams);
-        Ui.add(column, tools, 10);
-        zoomOut.setOnClickListener(v -> pixelCanvas.changeZoom(false));
-        zoomIn.setOnClickListener(v -> pixelCanvas.changeZoom(true));
-        reset.setOnClickListener(v -> {
-            pixelCanvas.clear();
-            colorMode = false;
-            palette.setVisibility(View.GONE);
-            fill.setVisibility(View.GONE);
-            validate.setText("Kontur prüfen");
-            hint.setText("Zeichne eine geschlossene Kontur. Prüfen schaltet die Innenpixel zum Ausmalen frei.");
-        });
-
-        palette = new GridLayout(this);
-        palette.setColumnCount(10);
-        palette.setVisibility(View.GONE);
-        for (int color : COLORS) {
-            View swatch = new View(this);
-            swatch.setBackground(Ui.shape(color, Ui.dp(this, 3)));
-            GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-            lp.width = Ui.dp(this, 28);
-            lp.height = Ui.dp(this, 28);
-            lp.setMargins(Ui.dp(this, 1), Ui.dp(this, 1), Ui.dp(this, 1), Ui.dp(this, 1));
-            palette.addView(swatch, lp);
-            swatch.setContentDescription("Farbe " + String.format("#%06X", 0xFFFFFF & color));
-            swatch.setOnClickListener(v -> pixelCanvas.setBrush(color));
+        page = Ui.column(this);
+        page.setPadding(Ui.dp(this, 13), Ui.dp(this, 26), Ui.dp(this, 13), Ui.dp(this, 22));
+        scroll.addView(page);
+        if (draft.stages.size() >= draft.requestedCount && !draft.drawingDeath) {
+            buildDeathChoice();
+        } else {
+            buildEditor();
         }
-        Ui.add(column, palette, 10);
-
-        fill = Ui.button(this, "Innenfläche mit gewählter Farbe füllen");
-        fill.setVisibility(View.GONE);
-        fill.setOnClickListener(v -> pixelCanvas.fillInterior());
-        Ui.add(column, fill, 8);
-
-        validate = Ui.button(this, "Kontur prüfen");
-        validate.setOnClickListener(v -> {
-            if (!colorMode) {
-                if (!pixelCanvas.validateClosed()) {
-                    Toast.makeText(this, "Kontur offen oder Innenfläche nicht eindeutig. Anfang und Ende müssen sich berühren.", Toast.LENGTH_LONG).show();
-                    return;
-                }
-                colorMode = true;
-                pixelCanvas.colorMode = true;
-                palette.setVisibility(View.VISIBLE);
-                fill.setVisibility(View.VISIBLE);
-                validate.setText("Ausmalen testen");
-                hint.setText("Kontur geprüft: Male ausschließlich innerhalb der Pflanze. Dieses erste Editor-Demo speichert noch keine Evolutionen.");
-            } else {
-                Toast.makeText(this, "Editor-Prototyp funktioniert. Der dauerhafte Mehrstufen-Speicher folgt im nächsten Entwicklungsmeilenstein.", Toast.LENGTH_LONG).show();
-            }
-        });
-        Ui.add(column, validate, 10);
-        Ui.add(column, Ui.text(this,
-                "Früher Prototyp 0.0.1: Noch kein Speichern, Farbeditor ist auf Stufe 1 begrenzt.", 12, false), 0);
         setContentView(scroll);
     }
 
+    private void buildDeathChoice() {
+        Ui.add(page, Ui.text(this, "Todesform festlegen", 25, true), 10);
+        Ui.add(page, Ui.text(this,
+            "Hier siehst du die erste Evolutionsstufe in Grauabstufungen. Du kannst sie übernehmen oder eine eigene Todespflanze zeichnen.",
+            15, false), 14);
+        ImageView image = new ImageView(this);
+        image.setImageBitmap(draft.stages.get(0).grayCopy().bitmap());
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        image.setBackgroundColor(Color.rgb(231, 225, 216));
+        page.addView(image, Ui.spacing(this, -1, Ui.dp(this, 280), 14));
+        Button accept = Ui.button(this, "Passt – Pflanze ins Beet");
+        accept.setOnClickListener(v -> completePlant(draft.stages.get(0).grayCopy()));
+        Ui.add(page, accept, 10);
+        Button custom = Ui.button(this, "Selber zeichnen");
+        custom.setOnClickListener(v -> {
+            draft.drawingDeath = true;
+            draft.colorMode = false;
+            draft.active = new PlantArt();
+            freshUndo();
+            persistDraft();
+            buildScreen();
+        });
+        Ui.add(page, custom, 10);
+        Ui.add(page, Ui.text(this, "Die Todesform ist ein zusätzlicher Zustand und zählt nicht zu den Evolutionsstufen.", 12, false), 0);
+    }
+    private void buildEditor() {
+        String step = draft.drawingDeath ? "Eigene Todesform" :
+                "Evolution " + (draft.stages.size() + 1) + "/" + draft.requestedCount;
+        Ui.add(page, Ui.text(this, step, 24, true), 5);
+        tip = Ui.text(this,
+                draft.colorMode
+                    ? "Schritt B: Male nur innerhalb deiner geschlossenen Kontur. Wähle eine der 40 Farben."
+                    : "Schritt A: Male eine geschlossene dunkelviolette Kontur im 300×300-Raster. Anfang und Ende müssen sich berühren.",
+                14, false);
+        Ui.add(page, tip, 12);
+        paintingSurface = new PixelCanvas();
+        Ui.add(page, paintingSurface, 10);
+        LinearLayout zoomRow = Ui.row(this);
+        Button less = Ui.button(this, "− Zoom");
+        Button more = Ui.button(this, "+ Zoom");
+        LinearLayout.LayoutParams half = new LinearLayout.LayoutParams(0, Ui.dp(this, 43), 1f);
+        half.rightMargin = Ui.dp(this, 6);
+        zoomRow.addView(less, half);
+        zoomRow.addView(more, new LinearLayout.LayoutParams(0, Ui.dp(this, 43), 1f));
+        less.setOnClickListener(v -> paintingSurface.zoom(false));
+        more.setOnClickListener(v -> paintingSurface.zoom(true));
+        Ui.add(page, zoomRow, 7);
+        LinearLayout historyRow = Ui.row(this);
+        Button undoButton = Ui.button(this, "↶ Zurück");
+        Button redoButton = Ui.button(this, "↷ Wiederholen");
+        LinearLayout.LayoutParams historyLeft = new LinearLayout.LayoutParams(0, Ui.dp(this, 43), 1f);
+        historyLeft.rightMargin = Ui.dp(this, 6);
+        historyRow.addView(undoButton, historyLeft);
+        historyRow.addView(redoButton, new LinearLayout.LayoutParams(0, Ui.dp(this, 43), 1f));
+        undoButton.setOnClickListener(v -> undoAction());
+        redoButton.setOnClickListener(v -> redoAction());
+        Ui.add(page, historyRow, 10);
+
+        if (draft.colorMode) {
+            GridLayout palette = new GridLayout(this);
+            palette.setColumnCount(8);
+            for (int color : COLORS) {
+                View swatch = new View(this);
+                android.graphics.drawable.GradientDrawable bg = Ui.shape(color, Ui.dp(this, 3));
+                bg.setStroke(Ui.dp(this, 1), Color.rgb(115, 106, 99));
+                swatch.setBackground(bg);
+                GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
+                lp.width = Ui.dp(this, 32); lp.height = Ui.dp(this, 32);
+                lp.setMargins(Ui.dp(this, 2), Ui.dp(this, 2), Ui.dp(this, 2), Ui.dp(this, 2));
+                palette.addView(swatch, lp);
+                swatch.setContentDescription("Malfarbe " + String.format("#%06X", color & 0xffffff));
+                swatch.setOnClickListener(v -> {
+                    brush = color; erase = false; bucket = false;
+                    tip.setText("Stift aktiviert: " + String.format("#%06X", color & 0xffffff));
+                });
+            }
+            Ui.add(page, palette, 10);
+            LinearLayout actions = Ui.row(this);
+            Button fill = Ui.button(this, "Eimer");
+            Button all = Ui.button(this, "Alle füllen");
+            Button eraser = Ui.button(this, "Radierer");
+            LinearLayout.LayoutParams a = new LinearLayout.LayoutParams(0, Ui.dp(this, 43), 1f);
+            a.rightMargin = Ui.dp(this, 4);
+            actions.addView(fill, a);
+            LinearLayout.LayoutParams b = new LinearLayout.LayoutParams(0, Ui.dp(this, 43), 1f);
+            b.rightMargin = Ui.dp(this, 4);
+            actions.addView(all, b);
+            actions.addView(eraser, new LinearLayout.LayoutParams(0, Ui.dp(this, 43), 1f));
+            fill.setOnClickListener(v -> { bucket = true; erase = false; tip.setText("Fülleimer: Tippe auf eine zusammenhängende Innenfläche."); });
+            all.setOnClickListener(v -> { history(); draft.active.fillAll(brush); paintingSurface.dirty(); scheduleSave(); });
+            eraser.setOnClickListener(v -> { erase = true; bucket = false; tip.setText("Radierer: Tippe oder ziehe innerhalb der Kontur."); });
+            Ui.add(page, actions, 10);
+        }
+        Button next = Ui.button(this, draft.colorMode
+                ? (draft.drawingDeath ? "Todesform fertigstellen" : "Evolution fertigstellen")
+                : "Kontur prüfen und ausmalen");
+        next.setOnClickListener(v -> {
+            if (!draft.colorMode) {
+                if (!draft.active.validate()) {
+                    new AlertDialog.Builder(this).setTitle("Kontur noch nicht geschlossen")
+                        .setMessage("Bitte zeichne einen einzigen, verbundenen Umriss ohne Randberührung. Zeichne bis zum Startpixel zurück. Ein eindeutiges Inneres muss vorhanden sein.")
+                        .setPositiveButton("Verstanden", null).show();
+                    return;
+                }
+                draft.colorMode = true;
+                freshUndo();
+                persistDraft();
+                buildScreen();
+            } else if (draft.drawingDeath) {
+                completePlant(draft.active.copy());
+            } else {
+                selectDifficulty();
+            }
+        });
+        Ui.add(page, next, 10);
+        Ui.add(page, Ui.text(this,
+            "Entwurf wird lokal gesichert. Vergrößere mit den Zoom-Tasten; verschiebe den Ausschnitt mit zwei Fingern. Alte Android-Versionen werden unterstützt.",
+            12, false), 0);
+    }
+    private void selectDifficulty() {
+        final int[] chosen = {0};
+        new AlertDialog.Builder(this)
+            .setTitle("Schwierigkeit für Evolutionsstufe " + (draft.stages.size()+1))
+            .setSingleChoiceItems(PlantStore.DIFFICULTIES, 0, (dlg, which) -> chosen[0] = which)
+            .setNegativeButton("Zurück", null)
+            .setPositiveButton("Speichern und weiter", (dlg, which) -> {
+                draft.stages.add(draft.active.copy());
+                draft.difficulties.add(chosen[0]);
+                draft.active = new PlantArt();
+                draft.colorMode = false;
+                freshUndo();
+                persistDraft();
+                buildScreen();
+            })
+            .show();
+    }
+    private void completePlant(PlantArt death) {
+        PlantStore.Plant plant = new PlantStore.Plant();
+        for (int i=0;i<draft.stages.size();i++) {
+            plant.stages.add(draft.stages.get(i).copy());
+            plant.difficulties.add(draft.difficulties.get(i));
+        }
+        plant.death = death;
+        try {
+            store.savePlant(plant);
+            finished = true;
+            saveHandler.removeCallbacks(saveTask);
+            store.clearDraft();
+            toast("Pflanze dauerhaft im Beet gespeichert!");
+            Intent beet = new Intent(this, BeetActivity.class);
+            beet.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            startActivity(beet);
+            finish();
+        } catch (IOException error) {
+            new AlertDialog.Builder(this).setTitle("Speicherung fehlgeschlagen")
+                .setMessage(error.toString()).setPositiveButton("OK", null).show();
+        }
+    }
+
     private final class PixelCanvas extends View {
-        private static final int SIZE = 300;
-        private static final int CELL_COUNT = SIZE * SIZE;
-        private final boolean[] outline = new boolean[CELL_COUNT];
-        private final boolean[] interior = new boolean[CELL_COUNT];
-        private final int[] artwork = new int[CELL_COUNT];
-        private final Bitmap bitmap = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888);
-        private final Paint bitmapPaint = new Paint();
+        private final Paint bmpPaint = new Paint();
+        private final Paint overlayPaint = new Paint();
         private final Paint gridPaint = new Paint();
         private final Paint borderPaint = new Paint();
-        private int zoom = 1;
-        private int offsetX = 0, offsetY = 0;
-        private int brush = COLORS[26];
-        private int firstX = -1, firstY = -1, lastX = -1, lastY = -1;
-        private int numberOfPoints = 0;
-        private float lastPanX, lastPanY;
-        private boolean panning;
-        private boolean colorMode;
         private final Rect src = new Rect();
         private final RectF dst = new RectF();
+        private Bitmap cached, previous;
+        private boolean dirty = true, panning;
+        private boolean gestureBlocked;
+        private int zoom = 1, ox, oy, previousX=-1, previousY=-1;
+        private float panX, panY;
 
         PixelCanvas() {
             super(EditorActivity.this);
-            bitmapPaint.setFilterBitmap(false);
-            gridPaint.setColor(0x55928A82);
+            bmpPaint.setFilterBitmap(false);
+            overlayPaint.setFilterBitmap(false);
+            overlayPaint.setAlpha(51); // 20% opacity
+            gridPaint.setColor(0x55847A70);
             gridPaint.setStrokeWidth(1f);
-            borderPaint.setColor(PURPLE);
             borderPaint.setStyle(Paint.Style.STROKE);
+            borderPaint.setColor(PlantArt.PURPLE);
             borderPaint.setStrokeWidth(Ui.dp(EditorActivity.this, 2));
+            if (!draft.drawingDeath && !draft.stages.isEmpty())
+                previous = draft.stages.get(draft.stages.size() - 1).bitmap();
         }
-        @Override protected void onMeasure(int widthSpec, int heightSpec) {
-            int w = MeasureSpec.getSize(widthSpec);
+        @Override protected void onMeasure(int wSpec, int hSpec) {
+            int w = MeasureSpec.getSize(wSpec);
             setMeasuredDimension(w, w);
         }
-        void setBrush(int color) { brush = color; }
-        void clear() {
-            Arrays.fill(outline, false);
-            Arrays.fill(interior, false);
-            Arrays.fill(artwork, Color.TRANSPARENT);
-            bitmap.eraseColor(Color.TRANSPARENT);
-            firstX = -1; firstY = -1; lastX = -1; lastY = -1; numberOfPoints = 0;
-            colorMode = false;
+        void dirty() { dirty = true; invalidate(); }
+        void zoom(boolean bigger) {
+            int before = zoom;
+            zoom = bigger ? zoom == 1 ? 2 : zoom == 2 ? 5 : 10 :
+                   zoom == 10 ? 5 : zoom == 5 ? 2 : 1;
+            if (zoom == before) return;
+            int oldVisible = PlantArt.SIZE / before, newVisible = PlantArt.SIZE / zoom;
+            ox = Math.max(0, Math.min(PlantArt.SIZE-newVisible,
+                    Math.round(ox + oldVisible/2f - newVisible/2f)));
+            oy = Math.max(0, Math.min(PlantArt.SIZE-newVisible,
+                    Math.round(oy + oldVisible/2f - newVisible/2f)));
             invalidate();
         }
-        void changeZoom(boolean increase) {
-            int previous = zoom;
-            if (increase) zoom = zoom == 1 ? 2 : zoom == 2 ? 5 : 10;
-            else zoom = zoom == 10 ? 5 : zoom == 5 ? 2 : 1;
-            if (zoom == previous) return;
-            int oldVisible = SIZE / previous;
-            float centerX = offsetX + oldVisible / 2f;
-            float centerY = offsetY + oldVisible / 2f;
-            int visible = SIZE / zoom;
-            offsetX = Math.max(0, Math.min(SIZE - visible, Math.round(centerX - visible / 2f)));
-            offsetY = Math.max(0, Math.min(SIZE - visible, Math.round(centerY - visible / 2f)));
-            invalidate();
-        }
-        @Override protected void onDraw(Canvas canvas) {
-            super.onDraw(canvas);
+        @Override protected void onDraw(Canvas c) {
+            super.onDraw(c);
             float side = Math.min(getWidth(), getHeight());
-            float left = (getWidth() - side) / 2f;
-            float top = (getHeight() - side) / 2f;
-            dst.set(left, top, left + side, top + side);
-            Paint background = new Paint();
-            background.setColor(Color.WHITE);
-            canvas.drawRect(dst, background);
-            int visible = SIZE / zoom;
-            src.set(offsetX, offsetY, offsetX + visible, offsetY + visible);
-            canvas.drawBitmap(bitmap, src, dst, bitmapPaint);
+            int visible = PlantArt.SIZE / zoom;
+            src.set(ox, oy, ox + visible, oy + visible);
+            dst.set(0, 0, side, side);
+            Paint bg = new Paint();
+            bg.setColor(0xfffdfaf4);
+            c.drawRect(dst, bg);
+            if (previous != null) c.drawBitmap(previous, src, dst, overlayPaint);
+            if (dirty || cached == null) {
+                if (cached != null) cached.recycle();
+                cached = draft.active.bitmap();
+                dirty = false;
+            }
+            c.drawBitmap(cached, src, dst, bmpPaint);
             int step = zoom >= 5 ? 1 : zoom >= 2 ? 5 : 10;
-            for (int x = offsetX; x <= offsetX + visible; x++) {
-                if (x % step != 0) continue;
-                float screenX = left + (x - offsetX) * side / visible;
-                canvas.drawLine(screenX, top, screenX, top + side, gridPaint);
-            }
-            for (int y = offsetY; y <= offsetY + visible; y++) {
-                if (y % step != 0) continue;
-                float screenY = top + (y - offsetY) * side / visible;
-                canvas.drawLine(left, screenY, left + side, screenY, gridPaint);
-            }
-            canvas.drawRect(dst, borderPaint);
+            for (int x=ox; x<=ox+visible; x++)
+                if (x % step == 0) {
+                    float px=(x-ox)*side/visible;
+                    c.drawLine(px, 0, px, side, gridPaint);
+                }
+            for (int y=oy; y<=oy+visible; y++)
+                if (y % step == 0) {
+                    float py=(y-oy)*side/visible;
+                    c.drawLine(0, py, side, py, gridPaint);
+                }
+            c.drawRect(dst, borderPaint);
         }
-        private int logicalX(float px) {
-            float side = Math.min(getWidth(), getHeight());
-            return Math.max(0, Math.min(299, offsetX + (int) (px * (SIZE / zoom) / side)));
+        private int lx(float px) {
+            return Math.max(0, Math.min(PlantArt.SIZE-1, ox + (int)(px * (PlantArt.SIZE / zoom) / getWidth())));
         }
-        private int logicalY(float py) {
-            float side = Math.min(getWidth(), getHeight());
-            return Math.max(0, Math.min(299, offsetY + (int) (py * (SIZE / zoom) / side)));
+        private int ly(float py) {
+            return Math.max(0, Math.min(PlantArt.SIZE-1, oy + (int)(py * (PlantArt.SIZE / zoom) / getHeight())));
         }
-        @Override public boolean onTouchEvent(MotionEvent event) {
-            int action = event.getActionMasked();
-            if (action == MotionEvent.ACTION_POINTER_DOWN && event.getPointerCount() >= 2) {
-                panning = true;
-                lastPanX = (event.getX(0) + event.getX(1)) / 2f;
-                lastPanY = (event.getY(0) + event.getY(1)) / 2f;
+        @Override public boolean onTouchEvent(MotionEvent e) {
+            int action = e.getActionMasked();
+            if (action == MotionEvent.ACTION_POINTER_DOWN && e.getPointerCount() >= 2) {
+                panning=true; gestureBlocked=true;
+                panX=(e.getX(0)+e.getX(1))/2; panY=(e.getY(0)+e.getY(1))/2;
                 return true;
             }
-            if (action == MotionEvent.ACTION_MOVE && event.getPointerCount() >= 2) {
-                float cx = (event.getX(0) + event.getX(1)) / 2f;
-                float cy = (event.getY(0) + event.getY(1)) / 2f;
-                int visible = SIZE / zoom;
-                float scale = visible / (float) Math.max(1, getWidth());
-                offsetX = Math.max(0, Math.min(SIZE - visible, Math.round(offsetX - (cx - lastPanX) * scale)));
-                offsetY = Math.max(0, Math.min(SIZE - visible, Math.round(offsetY - (cy - lastPanY) * scale)));
-                lastPanX = cx; lastPanY = cy;
-                invalidate(); return true;
+            if (action == MotionEvent.ACTION_MOVE && panning && e.getPointerCount() >= 2) {
+                float nx=(e.getX(0)+e.getX(1))/2, ny=(e.getY(0)+e.getY(1))/2;
+                int visible=PlantArt.SIZE/zoom;
+                ox=Math.max(0,Math.min(PlantArt.SIZE-visible,Math.round(ox-(nx-panX)*visible/getWidth())));
+                oy=Math.max(0,Math.min(PlantArt.SIZE-visible,Math.round(oy-(ny-panY)*visible/getHeight())));
+                panX=nx;panY=ny;invalidate();return true;
             }
-            if (action == MotionEvent.ACTION_POINTER_UP || action == MotionEvent.ACTION_CANCEL) {
-                panning = true; lastX = -1; lastY = -1; return true;
+            if (action == MotionEvent.ACTION_POINTER_UP) {
+                previousX=-1; previousY=-1; gestureBlocked=true; return true;
             }
-            if (action == MotionEvent.ACTION_UP) {
-                lastX = -1; lastY = -1; panning = false; return true;
+            if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_UP) {
+                if (previousX >= 0) scheduleSave();
+                previousX=-1; previousY=-1; panning=false; gestureBlocked=false; return true;
             }
-            if (panning && action != MotionEvent.ACTION_DOWN) return true;
-            if (action != MotionEvent.ACTION_DOWN && action != MotionEvent.ACTION_MOVE) return true;
-            if (action == MotionEvent.ACTION_DOWN) panning = false;
-            int x = logicalX(event.getX());
-            int y = logicalY(event.getY());
+            if (gestureBlocked || panning || (action!=MotionEvent.ACTION_DOWN && action!=MotionEvent.ACTION_MOVE))
+                return true;
+            int x=lx(e.getX()), y=ly(e.getY());
             if (action == MotionEvent.ACTION_DOWN) {
-                if (!colorMode && firstX < 0) { firstX = x; firstY = y; }
-                lastX = x; lastY = y;
-                putPixel(x, y);
-            } else {
-                if (lastX >= 0) line(lastX, lastY, x, y);
-                else putPixel(x, y);
-                lastX = x; lastY = y;
+                history();
+                previousX=x; previousY=y;
+                apply(x,y);
+            } else if (previousX >= 0) {
+                if (draft.colorMode && bucket) return true;
+                drawLine(previousX,previousY,x,y);
+                previousX=x;previousY=y;
             }
-            invalidate();
-            return true;
+            dirty();return true;
         }
-        private void line(int x0, int y0, int x1, int y1) {
-            int dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
-            int sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
-            int err = dx - dy;
-            for (;;) {
-                putPixel(x0, y0);
-                if (x0 == x1 && y0 == y1) return;
-                int e2 = 2 * err;
-                if (e2 > -dy) { err -= dy; x0 += sx; }
-                if (e2 < dx) { err += dx; y0 += sy; }
+        private void drawLine(int x0,int y0,int x1,int y1) {
+            int dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;
+            int error=dx-dy;
+            while(true) {
+                apply(x0,y0);
+                if(x0==x1 && y0==y1) break;
+                int twice=2*error;
+                if(twice > -dy) {error-=dy;x0+=sx;}
+                if(twice < dx) {error+=dx;y0+=sy;}
             }
         }
-        private void putPixel(int x, int y) {
-            int idx = y * SIZE + x;
-            if (!colorMode) {
-                if (!outline[idx]) {
-                    outline[idx] = true;
-                    numberOfPoints++;
-                }
-                bitmap.setPixel(x, y, PURPLE);
-                lastX = x; lastY = y;
-            } else if (interior[idx] && !outline[idx]) {
-                artwork[idx] = brush;
-                bitmap.setPixel(x, y, brush);
-            }
+        private void apply(int x,int y) {
+            if(!draft.colorMode) draft.active.drawContour(x,y);
+            else if(bucket) draft.active.fillRegion(x,y,brush);
+            else draft.active.colorPixel(x,y,erase ? Color.TRANSPARENT : brush);
         }
-        boolean validateClosed() {
-            if (numberOfPoints < 12 || firstX < 0 || lastX < 0) {
-                // ACTION_UP resets last pointer; find closure by connectivity of drawn pixels instead.
-                return detectInterior();
-            }
-            return detectInterior();
-        }
-        private boolean detectInterior() {
-            if (numberOfPoints < 12) return false;
-            for (int x = 0; x < SIZE; x++)
-                if (outline[x] || outline[(SIZE - 1) * SIZE + x]) return false;
-            for (int y = 0; y < SIZE; y++)
-                if (outline[y * SIZE] || outline[y * SIZE + SIZE - 1]) return false;
-            return computeInteriorByFlood();
-        }
-        private boolean computeInteriorByFlood() {
-            boolean[] outside = new boolean[CELL_COUNT];
-            int[] queue = new int[CELL_COUNT];
-            int head = 0, tail = 0;
-            for (int x = 0; x < SIZE; x++) {
-                int a = x, b = (SIZE - 1) * SIZE + x;
-                if (!outline[a] && !outside[a]) { outside[a] = true; queue[tail++] = a; }
-                if (!outline[b] && !outside[b]) { outside[b] = true; queue[tail++] = b; }
-            }
-            for (int y = 0; y < SIZE; y++) {
-                int a = y * SIZE, b = a + SIZE - 1;
-                if (!outline[a] && !outside[a]) { outside[a] = true; queue[tail++] = a; }
-                if (!outline[b] && !outside[b]) { outside[b] = true; queue[tail++] = b; }
-            }
-            while (head < tail) {
-                int i = queue[head++];
-                int x = i % SIZE, y = i / SIZE;
-                if (x > 0) tail = enqueue(i - 1, outside, queue, tail);
-                if (x + 1 < SIZE) tail = enqueue(i + 1, outside, queue, tail);
-                if (y > 0) tail = enqueue(i - SIZE, outside, queue, tail);
-                if (y + 1 < SIZE) tail = enqueue(i + SIZE, outside, queue, tail);
-            }
-            int inside = 0;
-            for (int i = 0; i < CELL_COUNT; i++) {
-                interior[i] = !outline[i] && !outside[i];
-                if (interior[i]) inside++;
-            }
-            return inside > 3;
-        }
-        private int enqueue(int i, boolean[] visited, int[] queue, int tail) {
-            if (!outline[i] && !visited[i]) { visited[i] = true; queue[tail++] = i; }
-            return tail;
-        }
-        void fillInterior() {
-            if (!colorMode) return;
-            for (int i = 0; i < CELL_COUNT; i++) {
-                if (interior[i]) {
-                    artwork[i] = brush;
-                    bitmap.setPixel(i % SIZE, i / SIZE, brush);
-                }
-            }
-            invalidate();
+        @Override protected void onDetachedFromWindow() {
+            if (cached != null) { cached.recycle(); cached=null; }
+            if (previous != null) { previous.recycle(); previous=null; }
+            super.onDetachedFromWindow();
         }
     }
 }
