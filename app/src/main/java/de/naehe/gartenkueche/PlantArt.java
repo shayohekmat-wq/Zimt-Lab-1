@@ -114,11 +114,20 @@ public final class PlantArt {
         if (inside == null) return;
         for (int i = 0; i < TOTAL; i++) if (inside[i]) pigments[i] = color;
     }
+    public int renderedPixel(int x, int y) {
+        int i=y*SIZE+x;
+        return outline[i] ? (grayOutline ? 0xFF565656 : PURPLE) : pigments[i];
+    }
+    public void renderInto(Bitmap target, int[] scratch) {
+        if (target.getWidth()!=SIZE || target.getHeight()!=SIZE || scratch.length<TOTAL)
+            throw new IllegalArgumentException("Expected 300x300 ARGB bitmap");
+        final int outlineColor=grayOutline ? 0xFF565656 : PURPLE;
+        for (int i=0;i<TOTAL;i++)scratch[i]=outline[i] ? outlineColor : pigments[i];
+        target.setPixels(scratch,0,SIZE,0,0,SIZE,SIZE);
+    }
     public Bitmap bitmap() {
-        int[] rgba = new int[TOTAL];
-        for (int i = 0; i < TOTAL; i++) rgba[i] = outline[i] ? (grayOutline ? Color.rgb(86, 86, 86) : PURPLE) : pigments[i];
         Bitmap bmp = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888);
-        bmp.setPixels(rgba, 0, SIZE, 0, 0, SIZE, SIZE);
+        renderInto(bmp,new int[TOTAL]);
         return bmp;
     }
     public PlantArt grayCopy() {
@@ -147,7 +156,8 @@ public final class PlantArt {
         if (a.points < 0 || a.points > TOTAL) throw new IOException("Invalid outline length");
         for (int i=0;i<TOTAL;i++) a.outline[i] = stream.readBoolean();
         for (int i=0;i<TOTAL;i++) a.pigments[i] = stream.readInt();
-        if (a.points > 0 && a.startX >= 0 && a.endX >= 0) a.validate();
+        // Reading saved artwork must NEVER re-run expensive contour detection.
+        // The active COLOR draft explicitly rebuilds its interior mask once on load.
         return a;
     }
 }
