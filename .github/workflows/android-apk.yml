@@ -42,9 +42,9 @@ jobs:
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Verify package allows side-by-side installation
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab4'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab5'"
       - uses: actions/upload-artifact@v4
         with:
-          name: Garten-und-Kueche-v0.0.4-Kontur-Fix-APK
+          name: Garten-und-Kueche-v0.0.5-Performance-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
