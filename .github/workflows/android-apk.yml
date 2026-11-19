@@ -22,6 +22,15 @@ jobs:
           SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
           test -n "$SDKMANAGER"
           "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Verify pure-Java lifecycle and care randomization
+        run: |
+          mkdir -p build/care-test
+          javac -d build/care-test \
+            tests/care/PlantStore.java \
+            app/src/main/java/de/naehe/gartenkueche/CareRules.java \
+            app/src/main/java/de/naehe/gartenkueche/CareEngine.java \
+            tests/care/CareEngineTest.java
+          java -cp build/care-test de.naehe.gartenkueche.CareEngineTest
       - name: Build independent APK (Android 6+)
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - uses: actions/upload-artifact@v4
