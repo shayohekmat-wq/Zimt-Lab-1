@@ -38,6 +38,17 @@ jobs:
             app/src/main/java/de/naehe/gartenkueche/ContourDetector.java \
             tests/care/ContourDetectorTest.java
           java -cp build/contour-test de.naehe.gartenkueche.ContourDetectorTest
+      - name: Test complete plant-art stem, coloring, crop and save pipeline
+        run: |
+          mkdir -p build/open-stroke-test
+          javac -d build/open-stroke-test \
+            tests/plant-art-stubs/android/graphics/Color.java \
+            tests/plant-art-stubs/android/graphics/Bitmap.java \
+            app/src/main/java/de/naehe/gartenkueche/ContourDetector.java \
+            app/src/main/java/de/naehe/gartenkueche/SpriteGeometry.java \
+            app/src/main/java/de/naehe/gartenkueche/PlantArt.java \
+            tests/care/PlantArtOpenStrokeTest.java
+          java -cp build/open-stroke-test de.naehe.gartenkueche.PlantArtOpenStrokeTest
       - name: Test multi-contour sprite geometry and virtual time
         run: |
           mkdir -p build/geometry-test
@@ -52,9 +63,9 @@ jobs:
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Verify package allows side-by-side installation
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab7'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab8'"
       - uses: actions/upload-artifact@v4
         with:
-          name: Garten-und-Kueche-v0.0.7-Zeitraffer-80x-APK
+          name: Garten-und-Kueche-v0.0.8-Stiel-Fix-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
