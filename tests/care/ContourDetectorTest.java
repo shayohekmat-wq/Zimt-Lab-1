@@ -88,6 +88,29 @@ public final class ContourDetectorTest {
         a=blank();line(a,40,40,140,130);line(a,140,130,35,100);
         check(ContourDetector.detect(a,S)==null,"two open strokes are not a contour");
 
-        System.out.println("ContourDetectorTest: multi-stroke, branches, crossings, gap healing and genuine open contours passed.");
+        // 20 separate valid loops in one stage: every last region is retained.
+        a=blank();
+        for(int row=0;row<4;row++)for(int col=0;col<5;col++)
+            loop(a,15+col*52,15+row*58,14,14);
+        r=valid(a,"twenty separately drawn contours");
+        check(r.regions==20,"all twenty separate interiors must survive");
+        for(int row=0;row<4;row++)for(int col=0;col<5;col++)
+            check(r.interior[(20+row*58)*S+(20+col*52)],"each separate shape fillable");
+
+        // One finished contour must not prevent another near-closed contour
+        // from being healed when the user adds it later.
+        a=blank();
+        loop(a,20,20,50,50);
+        line(a,160,150,188,150);
+        line(a,191,150,210,150);
+        line(a,210,150,210,205);
+        line(a,210,205,160,205);
+        line(a,160,205,160,150);
+        r=valid(a,"closed shape plus another small-gap shape");
+        check(r.regions>=2 && r.interior[35*S+35] && r.interior[175*S+175],
+            "both earlier and newer contours must be retained");
+        check(r.shortGapClosed,"second near-closed region should be healed");
+
+        System.out.println("ContourDetectorTest: multi-stroke, 20 contours, second-shape healing, branches and open lines passed.");
     }
 }
