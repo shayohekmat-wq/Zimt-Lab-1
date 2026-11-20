@@ -134,15 +134,8 @@ public final class PlantArt {
         public boolean contains(int x,int y){return x>=left&&x<right&&y>=top&&y<bottom;}
     }
     public Bounds bounds() {
-        int l=SIZE,t=SIZE,r=-1,b=-1;
-        for(int y=0;y<SIZE;y++) for(int x=0;x<SIZE;x++){
-            int i=y*SIZE+x;
-            if(outline[i] || Color.alpha(pigments[i])>0) {
-                if(x<l)l=x;if(y<t)t=y;if(x>r)r=x;if(y>b)b=y;
-            }
-        }
-        if(r<l) return new Bounds(0,0,0,0);
-        return new Bounds(l,t,r+1,b+1);
+        SpriteGeometry.Box b=SpriteGeometry.bounds(outline,pigments,SIZE,SIZE);
+        return new Bounds(b.left,b.top,b.right,b.bottom);
     }
     /** Never scale pixels to fit a 300x300 placeholder. */
     public Bitmap croppedBitmap(Bounds bounds){
