@@ -125,6 +125,36 @@ public final class PlantArt {
         for (int i=0;i<TOTAL;i++)scratch[i]=outline[i] ? outlineColor : pigments[i];
         target.setPixels(scratch,0,SIZE,0,0,SIZE,SIZE);
     }
+    /** Tight logical-pixel crop including ALL separated contour components. */
+    public static final class Bounds {
+        public final int left, top, right, bottom; // right/bottom exclusive
+        Bounds(int l,int t,int r,int b){left=l;top=t;right=r;bottom=b;}
+        public int width(){return right-left;}
+        public int height(){return bottom-top;}
+        public boolean contains(int x,int y){return x>=left&&x<right&&y>=top&&y<bottom;}
+    }
+    public Bounds bounds() {
+        int l=SIZE,t=SIZE,r=-1,b=-1;
+        for(int y=0;y<SIZE;y++) for(int x=0;x<SIZE;x++){
+            int i=y*SIZE+x;
+            if(outline[i] || Color.alpha(pigments[i])>0) {
+                if(x<l)l=x;if(y<t)t=y;if(x>r)r=x;if(y>b)b=y;
+            }
+        }
+        if(r<l) return new Bounds(0,0,0,0);
+        return new Bounds(l,t,r+1,b+1);
+    }
+    /** Never scale pixels to fit a 300x300 placeholder. */
+    public Bitmap croppedBitmap(Bounds bounds){
+        if(bounds.width()<=0 || bounds.height()<=0)return null;
+        Bitmap image=Bitmap.createBitmap(bounds.width(),bounds.height(),Bitmap.Config.ARGB_8888);
+        int[] row=new int[bounds.width()];
+        for(int y=bounds.top;y<bounds.bottom;y++){
+            for(int x=bounds.left;x<bounds.right;x++)row[x-bounds.left]=renderedPixel(x,y);
+            image.setPixels(row,0,bounds.width(),0,y-bounds.top,bounds.width(),1);
+        }
+        return image;
+    }
     public Bitmap bitmap() {
         Bitmap bmp = Bitmap.createBitmap(SIZE, SIZE, Bitmap.Config.ARGB_8888);
         renderInto(bmp,new int[TOTAL]);
