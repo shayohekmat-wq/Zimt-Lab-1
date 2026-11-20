@@ -126,7 +126,7 @@ public final class ContourDetectorTest {
         check(r.interior[60*S+184],"right leaf fillable");
         check(r.interior[160*S+143],"lower closed portion fillable");
         check(!r.interior[220*S+150],"outside stem must NOT be fillable");
-        check(r.outline[243*S+148] && r.outline[200*S+152],
+        check(r.outline[243*S+148] && r.outline[200*S+151],
             "open stem remains visible after contour validation");
         for(int i=0;i<N;i++)if(original[i])
             check(r.outline[i],"no previously drawn pixel may be deleted at "+i);
