@@ -6,7 +6,7 @@ import android.os.SystemClock;
 
 /**
  * Local-only virtual time for Beet testing. Not transferable as real partner time.
- * 1x follows real wall time while closed. 2..20x pauses when Beet is not active.
+ * 1x follows real wall time while closed. 2..80x pauses when Beet is not active.
  * Gesture/hold durations MUST continue to use SystemClock.elapsedRealtime().
  */
 public final class TestClock {
@@ -23,7 +23,7 @@ public final class TestClock {
         speed=limit(prefs.getInt("speed",1));
         anchorRealElapsed=SystemClock.elapsedRealtime();
     }
-    private static int limit(int value){return Math.max(1,Math.min(20,value));}
+    private static int limit(int value){return Math.max(1,Math.min(80,value));}
     public int speed(){return speed;}
     public long now(){
         if(running){
