@@ -42,7 +42,7 @@ public final class ContourDetectorTest {
         line(a,144,205,80,178);
         line(a,168,89,177,55); // dangling line must NOT invalidate
         ContourDetector.Result r=valid(a,"branching plant contour");
-        check(!r.outline[55*S+177],"stray outer branch must be removed");
+        check(r.outline[55*S+177],"open branch tip must remain visible");
         check(r.interior[150*S+143],"interior must remain paintable");
 
         // Example 2: leaf with a separate extra pencil line and kinked top.
@@ -111,6 +111,46 @@ public final class ContourDetectorTest {
             "both earlier and newer contours must be retained");
         check(r.shortGapClosed,"second near-closed region should be healed");
 
-        System.out.println("ContourDetectorTest: multi-stroke, 20 contours, second-shape healing, branches and open lines passed.");
+        // Regression from user screenshot: three closed shapes plus a single-
+        // pixel open stem. The old implementation erased the entire stem.
+        a=blank();
+        loop(a,115,46,30,25);     // small left leaf
+        loop(a,175,49,29,24);     // small right leaf
+        loop(a,96,147,106,32);    // lower enclosed section
+        line(a,152,179,151,207); // long unattached 1px vertical stem
+        line(a,151,207,148,243); // tiny kink at lower stem tip
+        boolean[] original=a.clone();
+        r=valid(a,"three regions plus a 1-pixel open stem");
+        check(r.regions==3,"three closed shapes, not four");
+        check(r.interior[56*S+123],"left leaf fillable");
+        check(r.interior[60*S+184],"right leaf fillable");
+        check(r.interior[160*S+143],"lower closed portion fillable");
+        check(!r.interior[220*S+150],"outside stem must NOT be fillable");
+        check(r.outline[243*S+148] && r.outline[200*S+152],
+            "open stem remains visible after contour validation");
+        for(int i=0;i<N;i++)if(original[i])
+            check(r.outline[i],"no previously drawn pixel may be deleted at "+i);
+
+        // Separate open detail away from closed region: still part of same plant.
+        a=blank(); loop(a,55,65,32,26);
+        line(a,185,90,197,145);
+        r=valid(a,"closed bud and detached open single-stroke detail");
+        check(r.outline[145*S+197],"distant open detail survives");
+        check(!r.interior[145*S+196],"detail does not create fillable area");
+
+        // Lückenschluss may ADD outline pixels, but never erase original ink.
+        a=blank();
+        line(a,30,40,55,40); line(a,58,40,89,40);
+        line(a,89,40,89,89);line(a,89,89,30,89);line(a,30,89,30,40);
+        line(a,62,88,63,125); // an open branch
+        original=a.clone();
+        r=valid(a,"gap healing alongside an open branch");
+        check(r.shortGapClosed,"the tiny gap is healed");
+        for(int i=0;i<N;i++)if(original[i])
+            check(r.outline[i],"gap healing must preserve all original strokes");
+        check(r.outline[125*S+63],"branch tip must survive bridge filling");
+        check(!r.interior[120*S+75],"branch outside original body not fillable");
+
+        System.out.println("ContourDetectorTest: screenshot stem, arbitrary open lines, twenty contours, healing and fill masks passed.");
     }
 }
