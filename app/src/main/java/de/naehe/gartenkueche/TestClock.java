@@ -28,7 +28,7 @@ public final class TestClock {
     public long now(){
         if(running){
             long elapsed=Math.max(0,SystemClock.elapsedRealtime()-anchorRealElapsed);
-            return anchorSimUtc+elapsed*speed;
+            return VirtualTimeMath.project(anchorSimUtc,elapsed,speed);
         }
         // In ordinary 1x mode, missed real-world time continues to count.
         return speed==1
@@ -60,8 +60,7 @@ public final class TestClock {
         persist();
     }
     public int plantDay(long creationSimUtc){
-        long elapsed=Math.max(0,now()-creationSimUtc);
-        return 1+(int)Math.min(Integer.MAX_VALUE-1,elapsed/CareRules.DAY_MS);
+        return VirtualTimeMath.plantDay(now(),creationSimUtc);
     }
     private void persist(){
         prefs.edit()
