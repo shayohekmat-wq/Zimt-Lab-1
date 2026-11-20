@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
         page.addView(garden, new LinearLayout.LayoutParams(-1, Ui.dp(this, 130)));
         garden.setOnClickListener(v -> Toast.makeText(this, "Garten kommt später.", Toast.LENGTH_SHORT).show());
 
-        TextView small = Ui.text(this, "ZIMT LAB 1   ·   Labor-Build 0.0.6   ·   Offline", 11, false);
+        TextView small = Ui.text(this, "ZIMT LAB 1   ·   Labor-Build 0.0.7   ·   Offline", 11, false);
         small.setTextColor(Color.rgb(110, 100, 90));
         small.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams footerLp = Ui.spacing(this, -1, -2, 0);
