@@ -1,37 +1,40 @@
 # Garten & Küche — ZIMT Lab 1
 
-Eigenständige native Android-App als modulares Labor für spätere ZIMT-Integration. Android **6.0+ (API 23)**, Java + Canvas, offline ohne Anmeldung/Firebase. Das ZIMT-Hauptrepository wird nicht verändert.
+Eigenständige Android-Test-App für spätere Integration in ZIMT. **Java + Android Canvas**, Android **6.0+ (API 23)**, offline-first und separat installierbar. ZIMT bleibt unverändert.
 
-## Version 0.0.5 — Performance-Optimierung
+## Build 0.0.6 — Mehrkonturen & Zeitraffer
 
-Nach einem gemeldeten Android-Dialog **„Garten & Küche 0.0.4 reagiert nicht“** wurden folgende Engpässe im Code umgebaut:
+Diese Version baut auf der Performance-Optimierung 0.0.5 auf.
 
-- **Beet-Datenladen auf einem eigenen Hintergrund-Thread:** Alte GZIP-Pflanzendateien und längere Offline-Pflegesimulationen blockieren nicht mehr die Benutzeroberfläche.
-- **Pflanzenbilder vom Pflegezustand getrennt:** Die unveränderlichen Evolutionszeichnungen werden einmal als Basis archiviert; bei Gießen und Verschieben wird künftig nur ein kleiner, atomar geschriebener Zustandsdatensatz aktualisiert. Die bisherigen Pflanzendateien können weiterhin gelesen werden.
-- **Atomare Speicherung:** Android \`AtomicFile\` schützt Pflanzendaten und kompakte Zustandsdateien vor halbfertigen Schreibvorgängen.
-- **Kein unnötiges Speichern bei App-Resume:** Bloßes Fortschreiten der letzten Prüfzeit zwingt nicht zu einem neuen Dateischreibvorgang.
-- **Editor mit wiederverwendbarer Bitmap:** Ein Zeichenstrich setzt direkt die betroffenen Pixel, statt bei jeder Bewegung das komplette 300×300-Bild neu anzulegen und die vorige Bitmap zu verwerfen.
-- **Draft-Autosave, Laden und Pflanzenabschluss auf einem I/O-Worker:** Lange Dateivorgänge laufen im Hintergrund; es gibt weiterhin Entwurfs-Autosave und Fortsetzen.
-- **Konturprüfung im Hintergrund:** Auch komplizierte mehrstrichige Konturen dürfen die UI nicht einfrieren. Die kurze Lückenerkennung prüft jetzt höchstens 24 sortierte Kandidaten statt möglicherweise tausende Vollraster-Varianten.
-- **Beet-Hintergrund einmalig gerendert:** Ein RGB_565-Bitmap für Boden und Raster wird wiederverwendet, Pflanzensprites entstehen außerhalb des UI-Threads und landen in einem begrenzten Cache.
-- **Debug-Messpunkt:** Dauer von Laden und Pflegeprüfung wird als \`GartenKuechePerf\` in Logcat gemeldet.
+### Neu in 0.0.6
+- **Mehrere Konturen pro Pflanze:** Eine Evolutionsstufe darf viele getrennte Formen enthalten. Der Kontur-Detektor sucht alle tatsächlichen abgeschlossenen Innenbereiche; eine spätere zweite Kontur ersetzt nicht die erste. Nach der Prüfung zeigt der Farbeditor die Anzahl erkannter Innenregionen an.
+- **Mehrere Formen = eine Pflanze:** Alle erkannten, bemalten Pixel aus separaten Konturen werden innerhalb derselben 300×300-Stage gespeichert. Im Beet ist es ein einziges gemeinsames Objekt, das sich zusammen verschieben lässt.
+- **Kleine Lücken:** Kurz geschlossene Lücken (bis vier logische Rasterpixel) können auch dann noch erkannt werden, wenn schon eine andere gültige Kontur existiert.
+- **Exakter enger Zuschnitt:** Im Beet werden Sprites je Evolutionsstufe auf die tatsächlich belegten Pixel zugeschnitten. Eine 8×12-Pixel-Zeichnung erscheint mit 8×12 logischen Pixeln — nicht auf 300×300 vergrößert. Die Positionen bleiben durch die aufbewahrten Originalkoordinaten über Evolutionsstufen stabil. Auch die Todesform wird so behandelt.
+- **Zeitraffer-Karte unterhalb des Beets:** Dunkle, violett akzentuierte Oberfläche, Slider **1×–20×** mit Geschwindigkeit und Anzeige, wie lange ein Spieltag in Echtzeit dauert.
+- **Pflanzenalter:** Tippe im Beet auf eine Pflanze. Unter dem Regler wird ihr persönlicher Lebenstag als **„Tag N“** angezeigt. Tag 1 beginnt bei der Aufnahme ins Beet; jeder weitere Tag beginnt nach vollen 24 *simulierten* Stunden.
+- **Virtuelle Testuhr:** Slider beschleunigt Pflegefristen, Wachstum, Rückentwicklung und Todesereignisse. Gießen erfordert **weiterhin fünf echte Sekunden** ununterbrochener Berührung.
+- **Zeituhr ohne Sprünge:** Der simulierte Zeitpunkt bleibt bei einem Geschwindigkeitswechsel konsistent. Im Testtempo >1× pausiert die Simulation, wenn das Beet nicht geöffnet ist; bei 1× läuft die normale Echtzeit weiter.
+- **Lokale Versionierung:** Geschwindigkeit und Testzeit separat in SharedPreferences, individueller simulierter Erstellungszeitpunkt je Pflanze im kompakten v2-Zustandsformat (v1 bleibt lesbar).
 
-### Bereits vorhandene Funktionen
+### Bestehende Funktionen
+Startseite Beet/Küche/Garten, Stufenauswahl 1–10, 300×300-Pixelstift, 40 Farben, Lückenerkennung, Füllen, Undo/Redo, 20%-Overlay der vorherigen Stufe, Graustufen-/eigene Todesform, 800×600-Beet, Long-Press-Verschieben, Gießkanne, vier Pflege-Schwierigkeitsgrade, offline gespeicherte Fristen und Lebenszyklus.
 
-Startseite mit Beet/Küche/Garten, Evolutionen 1–10, 300×300-Pixelkonturen und 40 Farben, 20%-Vorlage der vorherigen Stufe, Todesform grau oder selbst gezeichnet, automatisch ins 800×600-Beet, Long-Press-Verschieben, 5-Sekunden-Gießkanne, vier Pflege-Schwierigkeitsgrade, langfristige Pflege, Evolution, Regression und Tod.
+### Installation
+1. [GitHub Actions](https://github.com/shayohekmat-wq/Zimt-Lab-1/actions) → neuesten erfolgreichen Android-Build.
+2. Artifakt \`Garten-und-Kueche-v0.0.6-Mehrkonturen-Zeitraffer-APK\` (ZIP) laden, APK darin installieren. Im Chat wird die **einzelne APK direkt verlinkt**.
+3. **Parallele Installation**: eigene Paketkennung \`de.naehe.app.gartenkueche.lab6\` und eigener App-Name \`Garten & Küche 0.0.6\`.
 
-### Installation und wichtige Einschränkung
-
-1. Neuesten erfolgreichen [GitHub-Actions-Build](https://github.com/shayohekmat-wq/Zimt-Lab-1/actions) öffnen.
-2. Das Artifact **Garten-und-Kueche-v0.0.5-Performance-APK** herunterladen und entpacken. In ChatGPT wird die eigentliche APK direkt als Download angeboten.
-3. \`app-debug.apk\` installieren.
-
-**0.0.5 hat die eindeutige Android-Paketkennung \`de.naehe.app.gartenkueche.lab5\`.** Die neue Version lässt sich *parallel* zu 0.0.4 und zur ZIMT-App installieren. **Wichtig:** Android trennt dabei die Datensandboxes. Pflanzen aus 0.0.4 erscheinen nicht automatisch in 0.0.5. Die alte Installation bitte nicht entfernen, bevor wir einen expliziten Export-/Importpfad bereitgestellt haben. Bestehende Daten im gleichen Paket/Format werden rückwärtskompatibel gelesen.
+**Android-Sandbox:** Pflanzen und Entwürfe aus 0.0.5 erscheinen nicht automatisch in 0.0.6. Bitte vorherige Test-App nicht löschen. Export/Import zwischen Lab-Versionen und Partnergeräten kommt später. Spielzeitraffer ist **Testdatenzeit** und wird bei späteren ZIMT-Geschenken nicht als echte Zeit übertragen.
 
 ### Qualitätssicherung
+GitHub Actions: Java-Tests für sämtliche vier Pflege-Schwierigkeitsgrade, Evolution/Regression/Tod, separate Konturregionen (inklusive 20 Konturen), unabhängige kleine Lücken, Bounding-Box-Geometrie, 1×–20×-Zeitberechnung und Taggrenzen; danach Android-APK-Build und Anwendung-ID-Prüfung. Ein grüner Workflow ersetzt keine echten Gerätetests auf Android 6 bzw. deinem Android-Handy.
 
-GitHub Actions überprüft pure-Java-Pflege- und Kontur-Tests, Android 6.0+ minSdk und die APK-Paketkennung. **Ein grüner Build ist noch kein echter Gerätetest und beweist nicht, dass alle ANRs beseitigt sind.** Der Screenshot zeigt eine ANR; ohne Android-ANR-Stacktrace ist die exakte ursprüngliche Ursache nicht vollständig bestätigt. Ein ausführlicher Performance-Plan liegt in [PERFORMANCE_MASTERPLAN_0.0.5.md](PERFORMANCE_MASTERPLAN_0.0.5.md). Weitere Schritte: echte Profiling-Messungen, 10-Stufen-Belastungstests, inkrementelles Undo/Redo und Datenexport/-import.
+### Weitere Entwicklungsarbeit
+- Stabiler \`.zimtplant\`-Import/Export, Definition-/Instanz-Migration und Geschenkefunktion.
+- Performance- und ANR-Profile auf echten Geräten, insbesondere alte Android-Versionen.
+- Optionaler „+1 Testtag“-Knopf: bei 20× entspricht ein simulierter Tag immer noch **72 echte Minuten**.
+- Verbesserte Vorschau erkannter Konturen vor dem Ausmalen und differenziertere 2-Finger-Gesten.
+- Küche/Garten sind weiterhin Platzhalter.
 
-### Offene Spielregeln und Architektur
-
-Die aktuellen Pflegeinterpretationen sind weiterhin vorläufig, beschrieben im [Build-Plan 0.1.0](BUILD_PLAN_0.1.0.md). Java, klassische Android Views und minSdk23 bleiben unverändert; Kernfunktionen sind für eine spätere Übernahme nach ZIMT vorbereitet.
+**Referenzen:** [Build-Plan 0.0.6](BUILD_PLAN_0.0.6_MULTI_CONTOUR_TIMELAPSE.md) · [Performance-Plan 0.0.5](PERFORMANCE_MASTERPLAN_0.0.5.md) · [Masterplan 0.1.0](BUILD_PLAN_0.1.0.md).
