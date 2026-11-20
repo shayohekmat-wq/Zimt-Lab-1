@@ -36,6 +36,7 @@ public final class PlantStore {
     public static final class Plant {
         public String id = UUID.randomUUID().toString();
         public long createdAtUtc = System.currentTimeMillis();
+        public long createdAtSimUtc; // local timelapse age clock, not transferable
         public final ArrayList<PlantArt> stages = new ArrayList<>();
         public final ArrayList<Integer> difficulties = new ArrayList<>();
         public PlantArt death;
@@ -222,14 +223,15 @@ public final class PlantStore {
         public final String id;
         public final int stage, x, y, wateringCount;
         public final boolean dead;
-        public final long lastWaterAtUtc, stageEnteredAtUtc, windowStartUtc,
+        public final long createdAtSimUtc, lastWaterAtUtc, stageEnteredAtUtc, windowStartUtc,
                 windowEndUtc, lastEvaluatedAtUtc, windowOrdinal;
         public final int windowWaterings, minWater, maxWater, windowDays,
                 evolutionDays, strikesAtStageOne;
         public final long[] waterEventsUtc;
         private StateSnapshot(Plant p) {
             id=p.id; stage=p.stage; x=p.x; y=p.y; wateringCount=p.wateringCount;
-            dead=p.dead; lastWaterAtUtc=p.lastWaterAtUtc;
+            dead=p.dead; createdAtSimUtc=p.createdAtSimUtc;
+            lastWaterAtUtc=p.lastWaterAtUtc;
             stageEnteredAtUtc=p.stageEnteredAtUtc; windowStartUtc=p.windowStartUtc;
             windowEndUtc=p.windowEndUtc; lastEvaluatedAtUtc=p.lastEvaluatedAtUtc;
             windowOrdinal=p.windowOrdinal; windowWaterings=p.windowWaterings;
@@ -246,6 +248,7 @@ public final class PlantStore {
                strikesAtStageOne<0 || waterEventsUtc.length>100000)
                 throw new IOException("Invalid plant state");
             p.stage=stage;p.x=x;p.y=y;p.wateringCount=wateringCount;p.dead=dead;
+            p.createdAtSimUtc=createdAtSimUtc;
             p.lastWaterAtUtc=lastWaterAtUtc;p.stageEnteredAtUtc=stageEnteredAtUtc;
             p.windowStartUtc=windowStartUtc;p.windowEndUtc=windowEndUtc;
             p.lastEvaluatedAtUtc=lastEvaluatedAtUtc;p.windowOrdinal=windowOrdinal;
@@ -264,10 +267,11 @@ public final class PlantStore {
         try {
             DataOutputStream out=new DataOutputStream(new BufferedOutputStream(stream));
             out.writeInt(0x5A535435); // ZST5
-            out.writeInt(1);
+            out.writeInt(2);
             out.writeUTF(snapshot.id);
             out.writeInt(snapshot.stage);out.writeInt(snapshot.x);out.writeInt(snapshot.y);
             out.writeInt(snapshot.wateringCount);out.writeBoolean(snapshot.dead);
+            out.writeLong(snapshot.createdAtSimUtc);
             out.writeLong(snapshot.lastWaterAtUtc);out.writeLong(snapshot.stageEnteredAtUtc);
             out.writeLong(snapshot.windowStartUtc);out.writeLong(snapshot.windowEndUtc);
             out.writeLong(snapshot.lastEvaluatedAtUtc);out.writeLong(snapshot.windowOrdinal);
@@ -288,11 +292,14 @@ public final class PlantStore {
         if(!path.exists())return; // pre-0.0.5 archive or new definition
         try(DataInputStream in=new DataInputStream(new BufferedInputStream(
                 new AtomicFile(path).openRead()))) {
-            if(in.readInt()!=0x5A535435 || in.readInt()!=1)throw new IOException("Bad state schema");
+            if(in.readInt()!=0x5A535435)throw new IOException("Bad state schema");
+            int stateVersion=in.readInt();
+            if(stateVersion!=1 && stateVersion!=2)throw new IOException("Bad state version");
             Plant copy=new Plant();
             copy.id=in.readUTF();
             copy.stage=in.readInt();copy.x=in.readInt();copy.y=in.readInt();
             copy.wateringCount=in.readInt();copy.dead=in.readBoolean();
+            if(stateVersion>=2)copy.createdAtSimUtc=in.readLong();
             copy.lastWaterAtUtc=in.readLong();copy.stageEnteredAtUtc=in.readLong();
             copy.windowStartUtc=in.readLong();copy.windowEndUtc=in.readLong();
             copy.lastEvaluatedAtUtc=in.readLong();copy.windowOrdinal=in.readLong();
