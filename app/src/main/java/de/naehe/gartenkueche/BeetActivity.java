@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 0.0.6 — original-size, multi-contour sprites and local 1..20x care simulation.
+ * 0.0.6 — original-size, multi-contour sprites and local 1..80x care simulation.
  * Artwork is computed/cropped off-thread; user input and 5-second watering stay realtime.
  */
 public class BeetActivity extends Activity {
@@ -91,7 +91,7 @@ public class BeetActivity extends Activity {
         hint=Ui.text(this,"Tippe auf eine Pflanze, um ihren Lebenstag zu sehen. Zum Verschieben lange drücken.",13,false);
         Ui.add(page,hint,9);
         Ui.add(page,Ui.text(this,
-            "Zeitraffer ist ausschließlich lokal zum Testen. Bei 2–20× pausiert die simulierte Zeit außerhalb des Beets. Die Gießkanne benötigt weiterhin fünf echte Sekunden.",
+            "Zeitraffer ist ausschließlich lokal zum Testen. Bei 2–80× pausiert die simulierte Zeit außerhalb des Beets. Die Gießkanne benötigt weiterhin fünf echte Sekunden.",
             12,false),0);
         setContentView(scroll);
     }
@@ -120,7 +120,7 @@ public class BeetActivity extends Activity {
         Ui.add(card,titleRow,5);
 
         SeekBar slider=new SeekBar(this);
-        slider.setMax(19);slider.setProgress(clock.speed()-1);
+        slider.setMax(79);slider.setProgress(clock.speed()-1);
         slider.setProgressTintList(ColorStateList.valueOf(0xffa880ed));
         slider.setThumbTintList(ColorStateList.valueOf(0xffcfb0ff));
         slider.setProgressBackgroundTintList(ColorStateList.valueOf(0xff665b75));
@@ -138,7 +138,7 @@ public class BeetActivity extends Activity {
         Ui.add(card,slider,0);
 
         LinearLayout marks=Ui.row(this);
-        String[] positions={"1×","5×","10×","15×","20×"};
+        String[] positions={"1×","20×","40×","60×","80×"};
         for(String item:positions){
             TextView tick=lightText(item,11,false);
             tick.setTextColor(0xffb5a6c4);
@@ -216,11 +216,13 @@ public class BeetActivity extends Activity {
         speedValue.setText(clock.speed()+"×");
         ageValue.setText(selected==null?"Tag –":"Tag "+clock.plantDay(
             selected.createdAtSimUtc>0?selected.createdAtSimUtc:selected.createdAtUtc));
-        int minutes=1440/clock.speed();
-        int hours=minutes/60;
-        int remainder=minutes%60;
-        dayLengthValue.setText(hours>0
-            ?hours+" Std. "+remainder+" Min.":minutes+" Min.");
+        long daySeconds=Math.round(VirtualTimeMath.realMillisForOneDay(clock.speed())/1000.0);
+        long hours=daySeconds/3600;
+        long minutes=(daySeconds%3600)/60;
+        long seconds=daySeconds%60;
+        String readable=(hours>0 ? hours+" Std. " : "")+
+            minutes+" Min."+(seconds>0?" "+seconds+" Sek.":"");
+        dayLengthValue.setText(readable);
         clockHint.setText(clock.speed()>1?"pausiert außerhalb des Beets":"Echtzeit");
         int index=selected==null?-1:plants.indexOf(selected);
         selectedValue.setText(index<0?"Pflanze auswählen":"Pflanze "+(index+1)+" · Stufe "+selected.stage);
