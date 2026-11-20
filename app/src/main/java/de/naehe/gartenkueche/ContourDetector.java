@@ -10,25 +10,28 @@ import java.util.ArrayList;
  * A shape is valid when at least one meaningful enclosed pixel region exists.
  */
 public final class ContourDetector {
-    private static final int MIN_INTERIOR = 12;
+    private static final int MIN_INTERIOR = 4;
     private ContourDetector() {}
 
     public static final class Result {
         public final boolean[] outline;
         public final boolean[] interior;
         public final int area;
+        public final int regions;
         public final boolean shortGapClosed;
-        Result(boolean[] outline, boolean[] interior, int area, boolean bridged) {
+        Result(boolean[] outline, boolean[] interior, int area, int regions, boolean bridged) {
             this.outline=outline; this.interior=interior; this.area=area;
-            this.shortGapClosed=bridged;
+            this.regions=regions;this.shortGapClosed=bridged;
         }
     }
 
     public static Result detect(boolean[] ink, int size) {
         if (size < 5 || ink.length != size*size)
             throw new IllegalArgumentException("Invalid logical pixel canvas");
-        Result direct=detectEnclosure(ink,size,false);
-        if(direct != null) return direct;
+        Result best=detectEnclosure(ink,size,false);
+        boolean[] working=ink.clone();
+        // Even if one region is already closed, other nearby contour tips
+        // may need small gap repairs. Never discard already accepted regions.
 
         // A small touch gap (up to four logical pixels) should not make an
         // otherwise enclosed freehand shape impossible to color. Try bridging
@@ -45,7 +48,7 @@ public final class ContourDetector {
         // Only short candidate connections can heal a genuine <=4px gap.
         // Compute pair distances once, rank nearest tips first. At most 24
         // complete flood-fills are allowed (previously up to 12,720).
-        if(tips.size()>160) return null;
+        if(tips.size()>160) return best;
         ArrayList<int[]> possible=new ArrayList<>();
         for(int a=0;a<tips.size();a++){
             int start=tips.get(a),x0=start%size,y0=start/size;
@@ -60,12 +63,15 @@ public final class ContourDetector {
         for(int t=0;t<trials;t++){
             int[] pair=possible.get(t);
             int start=tips.get(pair[0]),end=tips.get(pair[1]);
-            boolean[] candidate=ink.clone();
+            boolean[] candidate=working.clone();
             connect(candidate,size,start%size,start/size,end%size,end/size);
             Result healed=detectEnclosure(candidate,size,true);
-            if(healed!=null)return healed;
+            if(healed!=null && (best==null || healed.area>best.area)) {
+                working=candidate;
+                best=healed;
+            }
         }
-        return null;
+        return best;
     }
     private static void connect(boolean[] target,int size,int x0,int y0,int x1,int y1) {
         int dx=Math.abs(x1-x0),dy=Math.abs(y1-y0);
@@ -105,7 +111,7 @@ public final class ContourDetector {
         // may subdivide its inside. Tiny accidental single-pixel pockets do not
         // make an otherwise open scribble into a plant.
         boolean[] interiors=new boolean[length],seen=new boolean[length];
-        int total=0,maxRegion=0;
+        int total=0,maxRegion=0,regionCount=0;
         for(int i=0;i<length;i++) {
             if(drawn[i] || outside[i] || seen[i]) continue;
             head=0;tail=0; seen[i]=true;queue[tail++]=i;
@@ -120,6 +126,7 @@ public final class ContourDetector {
             }
             if(edge || tail < MIN_INTERIOR) continue;
             maxRegion=Math.max(maxRegion,tail);
+            regionCount++;
             for(int q=0;q<tail;q++) interiors[queue[q]]=true;
             total+=tail;
         }
@@ -139,7 +146,7 @@ public final class ContourDetector {
                     if(interiors[yy*size+xx]) {touchesInside=true;break;}
             if(touchesInside) {boundary[i]=true;boundaryCount++;}
         }
-        if(boundaryCount < 8) return null;
-        return new Result(boundary,interiors,total,healed);
+        if(boundaryCount < 6) return null;
+        return new Result(boundary,interiors,total,regionCount,healed);
     }
 }
