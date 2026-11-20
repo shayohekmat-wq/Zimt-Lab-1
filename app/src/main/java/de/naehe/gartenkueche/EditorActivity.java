@@ -168,8 +168,8 @@ public class EditorActivity extends Activity {
         Ui.add(page, Ui.text(this, step, 24, true), 5);
         tip = Ui.text(this,
                 draft.colorMode
-                    ? "Schritt B: "+draft.active.detectedRegions()+" geschlossene Bereiche erkannt. Alle Innenflächen lassen sich mit 40 Farben bemalen."
-                    : "Schritt A: Zeichne mit beliebig vielen Strichen einen Umriss. Sobald eine erkennbare Innenfläche entsteht, kannst du mit Ausmalen weitermachen. Kleine Lücken werden automatisch geschlossen.",
+                    ? "Schritt B: "+draft.active.detectedRegions()+" geschlossene Bereiche erkannt. Offene Stiele und Zweige bleiben sichtbar, aber nur geschlossene Innenflächen lassen sich ausmalen."
+                    : "Schritt A: Zeichne geschlossene Blätter und offene Linien wie Stiele oder Zweige. Alle Striche bleiben erhalten. Nur die geschlossenen Innenflächen werden später ausgemalt.",
                 14, false);
         Ui.add(page, tip, 12);
         paintingSurface = new PixelCanvas();
@@ -250,7 +250,7 @@ public class EditorActivity extends Activity {
                         if(!success){
                             tip.setText("Noch keine abgeschlossene Innenfläche erkannt. Zeichne einfach weiter.");
                             new AlertDialog.Builder(this).setTitle("Noch keine Innenfläche erkannt")
-                                .setMessage("Mehrere Striche und überstehende Linien sind erlaubt. Es muss nur eine klar eingeschlossene Fläche geben; kleine Lücken werden automatisch geschlossen.")
+                                .setMessage("Alle Striche bleiben sichtbar. Um ausmalen zu können, muss mindestens eine geschlossene Innenfläche existieren. Kleine Lücken werden automatisch geschlossen.")
                                 .setPositiveButton("Verstanden",null).show();
                             return;
                         }
