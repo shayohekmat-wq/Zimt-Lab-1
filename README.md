@@ -2,11 +2,34 @@
 
 Eigenständige Android-Test-App für spätere Integration in ZIMT. **Java + Android Canvas**, Android **6.0+ (API 23)**, offline-first und separat installierbar. ZIMT bleibt unverändert.
 
-## Build 0.0.7 — Mehrkonturen & Zeitraffer bis 80×
+## Build 0.0.8 — Stiele und offene Linien bleiben erhalten
+
+**Fehlerkorrektur nach einem echten Smartphone-Test:** Bei einem selbst gezeichneten Setzling waren drei geschlossene Konturen erkannt, ein frei gezeichneter einpixeliger Stiel jedoch nach der Konturprüfung verschwunden.
+
+- Die Zeichenpixel bleiben jetzt **unabhängig** von der Maske für die ausmalbaren Innenflächen erhalten.
+- **Stiele, Zweige, Blattadern und offene Einzellinien** bleiben sichtbar; weiterhin sind nur die geschlossenen Bereiche bemalbar.
+- Eine spätere Linie oder Kontur löscht keine vorherigen Striche. Beim Schließen winziger Lücken werden ausschließlich Pixel hinzugefügt.
+- Die **enge Bounding Box** umfasst sämtliche sichtbaren Linien und Füllfarben. Dadurch werden auch lange dünne Stiele im Beet als Teil derselben Pixelpflanze exportiert und gemeinsam bewegt.
+- Dieselbe Logik gilt für alle Evolutionsstufen und die Todesform. Kein verändertes Pflanzen-Speicherformat.
+- Neue automatische Tests prüfen das ursprünglich gemalte Stielende, Innenmasken, Crop, die gespeicherten Konturpixel, Farben und Graustufen-Todesgrafik.
+- Unverändert: **1×–80× Zeitraffer**, Gießdauer fünf echte Sekunden, Android 6+ und die Performance-Optimierungen aus 0.0.5.
+
+**Installieren:** Die App `Garten & Küche 0.0.8` hat die neue Paketkennung
+`de.naehe.app.gartenkueche.lab8`. Sie ist parallel zu 0.0.7 und ZIMT installierbar.
+Die App-Daten sind aufgrund der getrennten Android-Sandboxes nicht automatisch übertragbar.
+Die direkte APK-Datei wird im Chat bereitgestellt; der zugehörige
+[GitHub-Actions-Workflow](https://github.com/shayohekmat-wq/Zimt-Lab-1/actions)
+enthält das Artefakt `Garten-und-Kueche-v0.0.8-Stiel-Fix-APK`.
+
+Technische Spezifikation: [BUILD_PLAN_0.0.8_OFFENE_LINIEN.md](BUILD_PLAN_0.0.8_OFFENE_LINIEN.md).
+
+---
+
+## Vorheriger Build 0.0.7 — Mehrkonturen & Zeitraffer bis 80×
 
 Diese Version baut auf der Performance-Optimierung 0.0.5 auf.
 
-### Neuerungen seit 0.0.7
+### Funktionen aus 0.0.7
 - **Mehrere Konturen pro Pflanze:** Eine Evolutionsstufe darf viele getrennte Formen enthalten. Der Kontur-Detektor sucht alle tatsächlichen abgeschlossenen Innenbereiche; eine spätere zweite Kontur ersetzt nicht die erste. Nach der Prüfung zeigt der Farbeditor die Anzahl erkannter Innenregionen an.
 - **Mehrere Formen = eine Pflanze:** Alle erkannten, bemalten Pixel aus separaten Konturen werden innerhalb derselben 300×300-Stage gespeichert. Im Beet ist es ein einziges gemeinsames Objekt, das sich zusammen verschieben lässt.
 - **Kleine Lücken:** Kurz geschlossene Lücken (bis vier logische Rasterpixel) können auch dann noch erkannt werden, wenn schon eine andere gültige Kontur existiert.
