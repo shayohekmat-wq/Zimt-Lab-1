@@ -65,7 +65,12 @@ public final class PlantArt {
         inside = null;detectedRegions=0;
         ContourDetector.Result result = ContourDetector.detect(outline, SIZE);
         if (result == null) return false;
-        System.arraycopy(result.outline, 0, outline, 0, TOTAL);
+        // Add healed bridge pixels without EVER deleting an original pen pixel.
+        // Outline = all strokes, including open stems and disconnected details.
+        // Inside = only the regions enclosed by those strokes.
+        for (int i = 0; i < TOTAL; i++) {
+            if (result.outline[i]) outline[i] = true;
+        }
         inside = result.interior;
         detectedRegions=result.regions;
         points = 0;
