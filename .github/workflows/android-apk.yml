@@ -38,13 +38,23 @@ jobs:
             app/src/main/java/de/naehe/gartenkueche/ContourDetector.java \
             tests/care/ContourDetectorTest.java
           java -cp build/contour-test de.naehe.gartenkueche.ContourDetectorTest
+      - name: Test multi-contour sprite geometry and virtual time
+        run: |
+          mkdir -p build/geometry-test
+          javac -d build/geometry-test \
+            app/src/main/java/de/naehe/gartenkueche/SpriteGeometry.java \
+            app/src/main/java/de/naehe/gartenkueche/VirtualTimeMath.java \
+            tests/care/SpriteGeometryTest.java \
+            tests/care/VirtualTimeMathTest.java
+          java -cp build/geometry-test de.naehe.gartenkueche.SpriteGeometryTest
+          java -cp build/geometry-test de.naehe.gartenkueche.VirtualTimeMathTest
       - name: Build independent APK (Android 6+)
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Verify package allows side-by-side installation
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab5'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab6'"
       - uses: actions/upload-artifact@v4
         with:
-          name: Garten-und-Kueche-v0.0.5-Performance-APK
+          name: Garten-und-Kueche-v0.0.6-Mehrkonturen-Zeitraffer-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
