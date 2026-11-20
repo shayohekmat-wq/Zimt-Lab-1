@@ -16,6 +16,7 @@ public final class PlantArt {
     final int[] pigments = new int[TOTAL]; // transparent=unset, any solid ARGB is painted
     int startX = -1, startY = -1, endX = -1, endY = -1, points = 0;
     private boolean[] inside = null;
+    private int detectedRegions;
     boolean grayOutline = false;
 
     public PlantArt copy() {
@@ -25,6 +26,7 @@ public final class PlantArt {
         c.startX = startX; c.startY = startY;
         c.endX = endX; c.endY = endY; c.points = points;
         if (inside != null) c.inside = inside.clone();
+        c.detectedRegions=detectedRegions;
         c.grayOutline = grayOutline;
         return c;
     }
@@ -32,7 +34,7 @@ public final class PlantArt {
         Arrays.fill(outline, false);
         Arrays.fill(pigments, 0);
         startX = -1; startY = -1; endX = -1; endY = -1; points = 0;
-        inside = null; grayOutline = false;
+        inside = null;detectedRegions=0; grayOutline = false;
     }
     private static int at(int x, int y) { return y * SIZE + x; }
     public void drawContour(int x, int y) {
@@ -60,11 +62,12 @@ public final class PlantArt {
      * Short gaps up to four logical pixels may be closed automatically.
      */
     public boolean validate() {
-        inside = null;
+        inside = null;detectedRegions=0;
         ContourDetector.Result result = ContourDetector.detect(outline, SIZE);
         if (result == null) return false;
         System.arraycopy(result.outline, 0, outline, 0, TOTAL);
         inside = result.interior;
+        detectedRegions=result.regions;
         points = 0;
         for (boolean pixel : outline) if (pixel) points++;
         // Preserve non-empty metadata for the older versioned storage reader.
@@ -80,6 +83,7 @@ public final class PlantArt {
         return true;
     }
     public boolean hasInterior() { return inside != null; }
+    public int detectedRegions(){return detectedRegions;}
     public void colorPixel(int x, int y, int color) {
         if (inside == null || x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
         int i = at(x, y);
