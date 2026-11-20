@@ -132,21 +132,11 @@ public final class ContourDetector {
         }
         if(maxRegion<MIN_INTERIOR) return null;
 
-        // Keep only strokes touching a genuine enclosed region; dangling
-        // decorative or stray lines outside the silhouette are automatically
-        // removed on confirmation rather than blocking progress.
-        boolean[] boundary=new boolean[length];
-        int boundaryCount=0;
-        for(int y=0;y<size;y++) for(int x=0;x<size;x++) {
-            int i=y*size+x;
-            if(!drawn[i]) continue;
-            boolean touchesInside=false;
-            for(int yy=Math.max(0,y-1);yy<=Math.min(size-1,y+1) && !touchesInside;yy++)
-                for(int xx=Math.max(0,x-1);xx<=Math.min(size-1,x+1);xx++)
-                    if(interiors[yy*size+xx]) {touchesInside=true;break;}
-            if(touchesInside) {boundary[i]=true;boundaryCount++;}
-        }
-        if(boundaryCount < 6) return null;
-        return new Result(boundary,interiors,total,regionCount,healed);
+        // IMPORTANT: visual strokes and fillable interiors are INDEPENDENT.
+        // Never filter strokes based on proximity to a closed region: stems,
+        // one-pixel branches, isolated details and open lines are all real art.
+        // A healed version may add closure pixels, but must never remove ink.
+        // This also saves an unnecessary 300x300 x 9-neighbour raster scan.
+        return new Result(drawn.clone(),interiors,total,regionCount,healed);
     }
 }
