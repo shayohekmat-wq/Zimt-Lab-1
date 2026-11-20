@@ -168,7 +168,7 @@ public class EditorActivity extends Activity {
         Ui.add(page, Ui.text(this, step, 24, true), 5);
         tip = Ui.text(this,
                 draft.colorMode
-                    ? "Schritt B: Male nur innerhalb deiner geschlossenen Kontur. Wähle eine der 40 Farben."
+                    ? "Schritt B: "+draft.active.detectedRegions()+" geschlossene Bereiche erkannt. Alle Innenflächen lassen sich mit 40 Farben bemalen."
                     : "Schritt A: Zeichne mit beliebig vielen Strichen einen Umriss. Sobald eine erkennbare Innenfläche entsteht, kannst du mit Ausmalen weitermachen. Kleine Lücken werden automatisch geschlossen.",
                 14, false);
         Ui.add(page, tip, 12);
