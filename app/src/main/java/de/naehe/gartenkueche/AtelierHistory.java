@@ -1,7 +1,6 @@
 package de.naehe.gartenkueche;
 
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 
 /** Sparse reversible pixel edits, independent of stage/mode/tool navigation. */
@@ -19,25 +18,31 @@ final class AtelierHistory {
     void cancel(){before=null;}
     void record(PlantArt current){
         if(before==null)return;
-        ArrayList<Integer> list=new ArrayList<>();
+        // Two primitive-array passes avoid boxing 90,000 Integer objects
+        // after a full-area bucket fill on older Android devices.
+        int n=0;
         for(int i=0;i<PlantArt.TOTAL;i++) {
             if(before.outline[i]!=current.outline[i] ||
                before.outlineColors[i]!=current.outlineColors[i] ||
-               before.pigments[i]!=current.pigments[i]) list.add(i);
+               before.pigments[i]!=current.pigments[i])n++;
         }
         boolean maskChanged=(!Arrays.equals(before.inside,current.inside))
             || before.detectedRegions!=current.detectedRegions;
-        if(list.isEmpty()&&!maskChanged){before=null;return;}
+        if(n==0&&!maskChanged){before=null;return;}
         Change c=new Change();
-        int n=list.size();
         c.ids=new int[n];c.oldColors=new int[n];c.newColors=new int[n];
         c.oldPigments=new int[n];c.newPigments=new int[n];
         c.oldOutline=new boolean[n];c.newOutline=new boolean[n];
-        for(int k=0;k<n;k++){
-            int i=list.get(k);c.ids[k]=i;
+        int k=0;
+        for(int i=0;i<PlantArt.TOTAL;i++){
+            if(before.outline[i]==current.outline[i] &&
+                before.outlineColors[i]==current.outlineColors[i] &&
+                before.pigments[i]==current.pigments[i])continue;
+            c.ids[k]=i;
             c.oldColors[k]=before.outlineColors[i];c.newColors[k]=current.outlineColors[i];
             c.oldPigments[k]=before.pigments[i];c.newPigments[k]=current.pigments[i];
             c.oldOutline[k]=before.outline[i];c.newOutline[k]=current.outline[i];
+            k++;
         }
         if(maskChanged){
             c.oldInside=before.inside==null?null:before.inside.clone();
