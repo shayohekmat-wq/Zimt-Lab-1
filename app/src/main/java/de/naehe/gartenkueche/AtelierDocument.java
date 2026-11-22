@@ -10,6 +10,8 @@ public final class AtelierDocument {
     public final PlantArt[] stages;
     public final PlantArt[] accepted;
     public final boolean[] completed;
+    public final boolean[] needsReview;
+    public boolean deathNeedsReview;
     public final int[] difficulty;
     public PlantArt death;
     public PlantArt acceptedDeath;
@@ -25,6 +27,7 @@ public final class AtelierDocument {
         stages=new PlantArt[count];
         accepted=new PlantArt[count];
         completed=new boolean[count];
+        needsReview=new boolean[count];
         difficulty=new int[count];
         for(int i=0;i<count;i++)stages[i]=new PlantArt();
         death=new PlantArt();
@@ -36,6 +39,9 @@ public final class AtelierDocument {
         else stages[active]=art;
         revision++;
     }
+    public boolean currentNeedsReview(){return deathMode?deathNeedsReview:needsReview[active];}
+    public void markReview(){if(deathMode)deathNeedsReview=true;else needsReview[active]=true;revision++;}
+    public void clearReview(){if(deathMode)deathNeedsReview=false;else needsReview[active]=false;revision++;}
     public PlantArt acceptedCurrent(){
         return deathMode?acceptedDeath:accepted[active];
     }
@@ -43,6 +49,7 @@ public final class AtelierDocument {
         replaceCurrent(art);
         if(deathMode)acceptedDeath=art.copy();
         else accepted[active]=art.copy();
+        clearReview();
     }
     public void restoreAcceptedOutline(){
         PlantArt baseline=acceptedCurrent();
@@ -84,10 +91,12 @@ public final class AtelierDocument {
             d.stages[i]=stages[i].copy();
             d.accepted[i]=accepted[i]==null?null:accepted[i].copy();
             d.completed[i]=completed[i];d.difficulty[i]=difficulty[i];
+            d.needsReview[i]=needsReview[i];
         }
         d.death=death.copy();
         d.acceptedDeath=acceptedDeath==null?null:acceptedDeath.copy();
         d.deathMode=deathMode;d.deathCompleted=deathCompleted;d.colorMode=colorMode;
+        d.deathNeedsReview=deathNeedsReview;
         d.active=active;d.palettePage=palettePage;d.selectedColor=selectedColor;
         d.tool=tool;d.zoom=zoom;d.panX=panX;d.panY=panY;d.revision=revision;
         return d;
