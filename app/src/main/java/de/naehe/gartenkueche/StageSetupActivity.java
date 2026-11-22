@@ -8,77 +8,98 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.NumberPicker;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.TextView;
 
-/** Stage selector; the draft is inspected and cleared only on the I/O worker. */
+/** Premium atelier entry. Recovery uses the same atomic AtelierStore as the editor. */
 public class StageSetupActivity extends Activity {
-    private PlantStore store;
+    private AtelierStore store;
     private boolean hasDraft;
-    @Override public void onCreate(Bundle state) {
+    @Override public void onCreate(Bundle state){
         super.onCreate(state);
-        store=new PlantStore(getApplicationContext());
+        store=new AtelierStore(this);
+        getWindow().setStatusBarColor(0xFF1B1312);
+        getWindow().setNavigationBarColor(0xFF1B1312);
         ScrollView scroll=new ScrollView(this);
-        scroll.setBackgroundColor(Ui.BACKGROUND);
+        scroll.setBackgroundColor(AtelierTheme.WALNUT);
         LinearLayout page=Ui.column(this);
-        page.setGravity(Gravity.CENTER_HORIZONTAL);
-        page.setPadding(Ui.dp(this,25),Ui.dp(this,38),Ui.dp(this,25),Ui.dp(this,30));
+        page.setPadding(Ui.dp(this,20),Ui.dp(this,44),Ui.dp(this,20),Ui.dp(this,20));
+        page.setBackground(AtelierTheme.background(this));
         scroll.addView(page);
-        Ui.add(page,Ui.text(this,"Neue Pflanze",29,true),15);
-        Ui.add(page,Ui.text(this,"Wie viele Evolutionsstufen soll deine Pflanze besitzen?",17,false),16);
-        NumberPicker stages=new NumberPicker(this);
-        stages.setMinValue(1);stages.setMaxValue(10);stages.setValue(3);
-        stages.setWrapSelectorWheel(false);
-        Ui.add(page,stages,20);
+        TextView head=AtelierTheme.text(this,"✦  Eine neue Pflanze  ✦",27,true);
+        head.setTextColor(AtelierTheme.GOLD);head.setGravity(Gravity.CENTER);
+        Ui.add(page,head,12);
+        TextView subtitle=AtelierTheme.text(this,
+            "Wie viele Evolutionsstufen soll sie bekommen?",16,false);
+        subtitle.setGravity(Gravity.CENTER);Ui.add(page,subtitle,24);
+        LinearLayout box=Ui.column(this);
+        box.setPadding(Ui.dp(this,18),Ui.dp(this,21),Ui.dp(this,18),Ui.dp(this,16));
+        box.setBackground(AtelierTheme.panel(this));
+        TextView count=AtelierTheme.text(this,"3 Evolutionsstufen",24,true);
+        count.setTextColor(AtelierTheme.GOLD);count.setGravity(Gravity.CENTER);
+        Ui.add(box,count,8);
+        SeekBar slider=new SeekBar(this);
+        slider.setMax(9);slider.setProgress(2);
+        slider.setProgressTintList(android.content.res.ColorStateList.valueOf(AtelierTheme.GOLD));
+        slider.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFFFFDCA7));
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+            public void onProgressChanged(SeekBar bar,int v,boolean fromUser){
+                count.setText((v+1)+(v==0?" Evolutionsstufe":" Evolutionsstufen"));
+            }
+            public void onStartTrackingTouch(SeekBar bar){}
+            public void onStopTrackingTouch(SeekBar bar){}
+        });
+        Ui.add(box,slider,4);
+        Ui.add(box,AtelierTheme.text(this,"1                                                 10",11,false),0);
+        Ui.add(page,box,22);
 
-        TextView draftInfo=Ui.text(this,"Gespeicherter Entwurf wird geprüft …",13,false);
-        Ui.add(page,draftInfo,12);
-        Button resume=Ui.button(this,"Gespeicherten Entwurf fortsetzen");
+        TextView info=AtelierTheme.text(this,"Gespeichertes Atelier wird geprüft …",13,false);
+        Ui.add(page,info,12);
+        Button resume=AtelierTheme.button(this,"Gespeicherten Entwurf fortsetzen",true);
         resume.setVisibility(View.GONE);
         resume.setOnClickListener(v->openEditor(0,true));
-        Ui.add(page,resume,15);
-        Button create=Ui.button(this,"Neue Pflanze zeichnen");
+        Ui.add(page,resume,11);
+        Button create=AtelierTheme.button(this,"✎  Neue Pflanze zeichnen  →",true);
+        create.setBackground(AtelierTheme.mainButton(this));
         create.setEnabled(false);
         create.setOnClickListener(v->{
             if(hasDraft){
-                new AlertDialog.Builder(this)
-                    .setTitle("Bisherigen Entwurf ersetzen?")
-                    .setMessage("Der bisherige unvollendete Entwurf wird gelöscht. Fertige Pflanzen bleiben erhalten.")
+                new AlertDialog.Builder(this).setTitle("Alten Entwurf ersetzen?")
+                    .setMessage("Nur der unvollendete Atelier-Entwurf wird ersetzt. Fertige Pflanzen im Beet bleiben erhalten.")
                     .setNegativeButton("Abbrechen",null)
                     .setPositiveButton("Neue Pflanze beginnen",(dialog,which)->{
                         create.setEnabled(false);
                         AppIo.execute(()->{
-                            store.clearDraft();
+                            store.clear();
                             AppIo.onMain(()->{
-                                if(!isFinishing() && !isDestroyed())openEditor(stages.getValue(),false);
+                                if(!isFinishing()&&!isDestroyed())openEditor(slider.getProgress()+1,false);
                             });
                         });
                     }).show();
-            }else openEditor(stages.getValue(),false);
+            }else openEditor(slider.getProgress()+1,false);
         });
-        Ui.add(page,create,13);
-        Ui.add(page,Ui.text(this,
-            "Die vollständige Zeichnung wird automatisch gespeichert. Beim Weitermalen bleiben Konturen und Farben erhalten.",
-            13,false),0);
+        Ui.add(page,create,16);
+        Ui.add(page,AtelierTheme.text(this,
+            "Im Atelier kannst du Konturen und Farben später jederzeit korrigieren, zwischen Stufen wechseln und frühere Arbeiten wieder öffnen.",13,false),0);
         setContentView(scroll);
 
         AppIo.execute(()->{
-            PlantStore.Draft saved=store.loadDraft();
+            AtelierDocument saved=store.load();
             AppIo.onMain(()->{
-                if(isFinishing() || isDestroyed())return;
+                if(isFinishing()||isDestroyed())return;
                 hasDraft=saved!=null;
-                draftInfo.setText(hasDraft
-                    ? "Unvollendeter Entwurf mit "+saved.requestedCount+" geplanten Evolutionsstufen vorhanden."
-                    : "Noch kein unvollendeter Entwurf vorhanden.");
+                info.setText(hasDraft
+                    ?"Ein sicher gespeicherter Entwurf mit "+saved.count+" Stufen wartet auf dich."
+                    :"Noch kein Entwurf vorhanden. Du kannst direkt beginnen.");
                 resume.setVisibility(hasDraft?View.VISIBLE:View.GONE);
                 create.setEnabled(true);
             });
         });
     }
-    private void openEditor(int stageCount,boolean resume){
-        Intent intent=new Intent(this,EditorActivity.class);
-        intent.putExtra("stage_count",stageCount);
+    private void openEditor(int count,boolean resume){
+        Intent intent=new Intent(this,AtelierEditorActivity.class);
+        intent.putExtra("stage_count",count);
         intent.putExtra("resume_draft",resume);
         startActivity(intent);finish();
     }
