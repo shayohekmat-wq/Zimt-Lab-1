@@ -466,7 +466,8 @@ public final class AtelierEditorActivity extends Activity {
                     busy=false;
                     if(pixelView!=null)pixelView.setEnabled(true);
                     if(tip!=null)tip.setText("Mindestens eine geschlossene Fläche benötigt. Offene Stiele bleiben erhalten.");
-                    notifyShort("Noch keine ausmalbare Innenfläche erkannt");
+                    if(doc.acceptedCurrent()!=null)showInvalidContourRecovery();
+                    else notifyShort("Noch keine ausmalbare Innenfläche erkannt");
                     return;
                 }
                 int hidden=doc.threatenedColors(candidate);
@@ -478,6 +479,27 @@ public final class AtelierEditorActivity extends Activity {
                 commitContour(candidate);
             });
         });
+    }
+    private void showInvalidContourRecovery(){
+        previewPanel.removeAllViews();
+        previewPanel.setVisibility(View.VISIBLE);
+        previewPanel.setPadding(Ui.dp(this,12),Ui.dp(this,11),Ui.dp(this,12),Ui.dp(this,11));
+        previewPanel.setBackground(AtelierTheme.panel(this));
+        Ui.add(previewPanel,AtelierTheme.text(this,"Diese Kontur ist noch offen",16,true),5);
+        Ui.add(previewPanel,AtelierTheme.text(this,
+            "Du kannst weiterzeichnen oder deine letzte gültige Kontur mit allen bemalten Farben wiederherstellen.",13,false),8);
+        Button restore=AtelierTheme.button(this,"Letzte gültige Kontur wiederherstellen",true);
+        restore.setOnClickListener(v->{
+            history().begin(art());
+            doc.restoreAcceptedOutline();
+            history().record(art());
+            doc.clearReview();doc.colorMode=true;
+            doc.revision++;scheduleSave();rebuild();
+        });
+        Ui.add(previewPanel,restore,6);
+        Button keepEditing=AtelierTheme.button(this,"Weiter an der Kontur zeichnen",false);
+        keepEditing.setOnClickListener(v->previewPanel.setVisibility(View.GONE));
+        Ui.add(previewPanel,keepEditing,0);
     }
     private void showTopologyPreview(){
         if(pixelView!=null)pixelView.preview(pendingCandidate);
