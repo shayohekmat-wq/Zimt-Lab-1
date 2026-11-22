@@ -509,7 +509,12 @@ public final class AtelierEditorActivity extends Activity {
         Ui.add(previewPanel,difference,0);
     }
     private void commitContour(PlantArt candidate){
-        history().begin(art());
+        // One Undo must restore the LAST ACCEPTED contour, not just reverse
+        // the technical mask-validation step. Preserve all latest pigments.
+        PlantArt baseline=doc.acceptedCurrent();
+        PlantArt before=baseline!=null?baseline.copy():art().copy();
+        System.arraycopy(art().pigments,0,before.pigments,0,PlantArt.TOTAL);
+        history().begin(before);
         doc.acceptCurrent(candidate);
         history().record(art());
         doc.colorMode=true;
