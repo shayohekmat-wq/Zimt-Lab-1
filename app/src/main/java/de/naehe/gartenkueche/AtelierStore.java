@@ -59,7 +59,7 @@ public final class AtelierStore {
             d.palettePage=in.readInt();d.selectedColor=in.readInt();d.tool=in.readInt();
             d.zoom=in.readInt();d.panX=in.readInt();d.panY=in.readInt();d.revision=in.readLong();
             if(d.active<0 || d.active>d.count || d.tool<0 || d.tool>4 ||
-                    d.palettePage<0 || d.palettePage>4 || d.zoom<1 || d.zoom>10)
+                    d.palettePage<0 || d.palettePage>5 || d.zoom<1 || d.zoom>10)
                 throw new IOException("Corrupt editor state");
             for(int i=0;i<n;i++){
                 d.completed[i]=in.readBoolean();d.difficulty[i]=in.readInt();
