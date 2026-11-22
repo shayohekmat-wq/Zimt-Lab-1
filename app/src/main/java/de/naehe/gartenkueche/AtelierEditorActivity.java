@@ -55,7 +55,7 @@ public final class AtelierEditorActivity extends Activity {
     private TextView status,tip,toolLabel,pageLabel;
     private Button[] tools=new Button[5];
     private int pageGeneration;
-    private boolean busy,complete,showGrid=true;
+    private boolean busy,complete,savingFinal,showGrid=true;
     private PlantArt pendingCandidate;
     private int pendingHidden;
 
@@ -95,7 +95,7 @@ public final class AtelierEditorActivity extends Activity {
         handler.postDelayed(autosave,950);
     }
     private void saveDraft(){
-        if(complete||doc==null)return;
+        if(complete||savingFinal||doc==null)return;
         final AtelierDocument snapshot=doc.copy();
         if(status!=null)status.setText("◷  Sichert …");
         AppIo.execute(()->{
@@ -549,7 +549,7 @@ public final class AtelierEditorActivity extends Activity {
             navigateStage(i,doc.stages[i].hasInterior());
             return;
         }
-        busy=true;
+        busy=true;savingFinal=true;
         PlantStore.Plant p=new PlantStore.Plant();
         for(int i=0;i<doc.count;i++){
             p.stages.add(doc.stages[i].copy());
@@ -568,6 +568,7 @@ public final class AtelierEditorActivity extends Activity {
                 if(isFinishing()||isDestroyed())return;
                 busy=false;
                 if(error!=null){
+                    savingFinal=false;
                     new AlertDialog.Builder(this).setTitle("Speichern fehlgeschlagen")
                         .setMessage(error.getMessage()).setPositiveButton("OK",null).show();
                     return;
