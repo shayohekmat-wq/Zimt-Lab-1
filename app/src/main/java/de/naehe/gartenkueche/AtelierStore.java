@@ -48,7 +48,7 @@ public final class AtelierStore {
         }
     }
     public AtelierDocument load() {
-        if(!exists())return null;
+        // openRead also restores a valid AtomicFile backup after interrupted writes.
         try(DataInputStream in=new DataInputStream(new GZIPInputStream(file.openRead()))){
             if(in.readInt()!=MAGIC || in.readInt()!=VERSION)throw new IOException("Unsupported atelier version");
             int n=in.readInt();
@@ -71,6 +71,8 @@ public final class AtelierStore {
             d.death=PlantArt.read(in);
             if(in.readBoolean())d.acceptedDeath=PlantArt.read(in);
             return d;
+        }catch(java.io.FileNotFoundException absent){
+            return null;
         }catch(Exception ex){
             Log.e("GartenKueche","Draft read failure, not deleting recoverable file",ex);
             return null;
