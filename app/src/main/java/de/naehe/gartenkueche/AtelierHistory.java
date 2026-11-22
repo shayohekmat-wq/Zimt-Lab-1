@@ -1,0 +1,74 @@
+package de.naehe.gartenkueche;
+
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+/** Sparse reversible pixel edits, independent of stage/mode/tool navigation. */
+final class AtelierHistory {
+    static final class Change {
+        int[] ids, oldColors,newColors,oldPigments,newPigments;
+        boolean[] oldOutline,newOutline,oldInside,newInside;
+        int oldRegionCount,newRegionCount;
+    }
+    private final ArrayDeque<Change> undo=new ArrayDeque<>();
+    private final ArrayDeque<Change> redo=new ArrayDeque<>();
+    private PlantArt before;
+    private static final int MAX=32;
+    void begin(PlantArt art){before=art.copy();}
+    void cancel(){before=null;}
+    void record(PlantArt current){
+        if(before==null)return;
+        ArrayList<Integer> list=new ArrayList<>();
+        for(int i=0;i<PlantArt.TOTAL;i++) {
+            if(before.outline[i]!=current.outline[i] ||
+               before.outlineColors[i]!=current.outlineColors[i] ||
+               before.pigments[i]!=current.pigments[i]) list.add(i);
+        }
+        boolean maskChanged=(!Arrays.equals(before.inside,current.inside))
+            || before.detectedRegions!=current.detectedRegions;
+        if(list.isEmpty()&&!maskChanged){before=null;return;}
+        Change c=new Change();
+        int n=list.size();
+        c.ids=new int[n];c.oldColors=new int[n];c.newColors=new int[n];
+        c.oldPigments=new int[n];c.newPigments=new int[n];
+        c.oldOutline=new boolean[n];c.newOutline=new boolean[n];
+        for(int k=0;k<n;k++){
+            int i=list.get(k);c.ids[k]=i;
+            c.oldColors[k]=before.outlineColors[i];c.newColors[k]=current.outlineColors[i];
+            c.oldPigments[k]=before.pigments[i];c.newPigments[k]=current.pigments[i];
+            c.oldOutline[k]=before.outline[i];c.newOutline[k]=current.outline[i];
+        }
+        if(maskChanged){
+            c.oldInside=before.inside==null?null:before.inside.clone();
+            c.newInside=current.inside==null?null:current.inside.clone();
+            c.oldRegionCount=before.detectedRegions;c.newRegionCount=current.detectedRegions;
+        } else {
+            c.oldRegionCount=-1;c.newRegionCount=-1;
+        }
+        undo.addLast(c);
+        while(undo.size()>MAX)undo.removeFirst();
+        redo.clear();before=null;
+    }
+    boolean undo(PlantArt art){
+        if(undo.isEmpty())return false;
+        Change c=undo.removeLast();apply(art,c,false);redo.addLast(c);return true;
+    }
+    boolean redo(PlantArt art){
+        if(redo.isEmpty())return false;
+        Change c=redo.removeLast();apply(art,c,true);undo.addLast(c);return true;
+    }
+    private void apply(PlantArt art,Change c,boolean forward){
+        for(int k=0;k<c.ids.length;k++){
+            int i=c.ids[k];
+            art.outline[i]=forward?c.newOutline[k]:c.oldOutline[k];
+            art.outlineColors[i]=forward?c.newColors[k]:c.oldColors[k];
+            art.pigments[i]=forward?c.newPigments[k]:c.oldPigments[k];
+        }
+        if(c.oldRegionCount>=0){
+            boolean[] mask=forward?c.newInside:c.oldInside;
+            art.inside=mask==null?null:mask.clone();
+            art.detectedRegions=forward?c.newRegionCount:c.oldRegionCount;
+        }
+    }
+}
