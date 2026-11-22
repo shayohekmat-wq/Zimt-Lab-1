@@ -189,7 +189,7 @@ public final class AtelierEditorActivity extends Activity {
         Button outline=AtelierTheme.button(this,"✎  Kontur",!doc.colorMode);
         Button color=AtelierTheme.button(this,"◉  Farbe",doc.colorMode);
         addFlex(mode,outline,5);addFlex(mode,color,0);
-        outline.setOnClickListener(v->{if(doc.colorMode){doc.beginContourEdit();scheduleSave();rebuild();}});
+        outline.setOnClickListener(v->{if(doc.colorMode){doc.beginContourEdit();if(doc.tool==4)doc.tool=0;scheduleSave();rebuild();}});
         color.setOnClickListener(v->{if(!doc.colorMode)validateOutline();});
         Ui.add(layout,mode,8);
 
@@ -434,7 +434,7 @@ public final class AtelierEditorActivity extends Activity {
         if(doc.deathChoice()){
             navigateStage(doc.count-1,true);
         }else if(doc.colorMode){
-            doc.beginContourEdit();scheduleSave();rebuild();
+            doc.beginContourEdit();if(doc.tool==4)doc.tool=0;scheduleSave();rebuild();
         }else if(doc.deathMode){
             doc.deathMode=false;doc.active=doc.count;doc.revision++;scheduleSave();rebuild();
         }else if(doc.active>0){
