@@ -38,7 +38,9 @@ public final class AtelierWorkflowTest {
         check(candidate.validate(),"revised outline valid");
         check(d.threatenedColors(candidate)>0,"review prompted for covered paint");
         check(art.pigments[80+82*300]==red,"pigment remains in uncommitted art");
-        h[0].begin(art);
+        PlantArt beforeCommit=d.acceptedCurrent().copy();
+        System.arraycopy(art.pigments,0,beforeCommit.pigments,0,PlantArt.TOTAL);
+        h[0].begin(beforeCommit);
         d.acceptCurrent(candidate);
         h[0].record(d.current());
         d.colorMode=true;
