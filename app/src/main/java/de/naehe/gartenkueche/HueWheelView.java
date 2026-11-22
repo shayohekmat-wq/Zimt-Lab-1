@@ -21,7 +21,7 @@ final class HueWheelView extends View {
     private float hue=45,saturation=1,value=1;
     HueWheelView(Context c){super(c);setContentDescription("Farbkreis: Farbton und Sättigung durch Berühren wählen");}
     void setListener(Listener l){listener=l;}
-    void setBrightness(float v){value=Math.max(.05f,Math.min(1,v));invalidate();if(listener!=null)listener.picked(color());}
+    void setBrightness(float v){value=Math.max(0f,Math.min(1,v));invalidate();if(listener!=null)listener.picked(color());}
     int color(){return Color.HSVToColor(new float[]{hue,saturation,value});}
     void setColor(int argb){
         float[] hsv=new float[3];Color.colorToHSV(argb,hsv);
