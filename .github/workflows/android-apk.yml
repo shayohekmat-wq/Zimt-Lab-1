@@ -59,13 +59,25 @@ jobs:
             tests/care/VirtualTimeMathTest.java
           java -cp build/geometry-test de.naehe.gartenkueche.SpriteGeometryTest
           java -cp build/geometry-test de.naehe.gartenkueche.VirtualTimeMathTest
+      - name: Test non-destructive atelier stage and contour workflow
+        run: |
+          mkdir -p build/atelier-test
+          javac -d build/atelier-test \
+            tests/plant-art-stubs/android/graphics/Color.java \
+            tests/plant-art-stubs/android/graphics/Bitmap.java \
+            app/src/main/java/de/naehe/gartenkueche/ContourDetector.java \
+            app/src/main/java/de/naehe/gartenkueche/PlantArt.java \
+            app/src/main/java/de/naehe/gartenkueche/AtelierDocument.java \
+            app/src/main/java/de/naehe/gartenkueche/AtelierHistory.java \
+            tests/care/AtelierWorkflowTest.java
+          java -cp build/atelier-test de.naehe.gartenkueche.AtelierWorkflowTest
       - name: Build independent APK (Android 6+)
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Verify package allows side-by-side installation
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab8'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab9'"
       - uses: actions/upload-artifact@v4
         with:
-          name: Garten-und-Kueche-v0.0.8-Stiel-Fix-APK
+          name: Garten-und-Kueche-v0.0.9-Atelier-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
