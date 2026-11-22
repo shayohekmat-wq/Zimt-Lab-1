@@ -313,8 +313,8 @@ public final class AtelierEditorActivity extends Activity {
         controls.addView(pageLabel,new LinearLayout.LayoutParams(0,Ui.dp(this,42),1));
         Button right=AtelierTheme.button(this,"›",false);
         controls.addView(right,new LinearLayout.LayoutParams(Ui.dp(this,41),Ui.dp(this,42)));
-        left.setOnClickListener(v->{doc.palettePage=(doc.palettePage+4)%5;refreshSwatches();scheduleSave();});
-        right.setOnClickListener(v->{doc.palettePage=(doc.palettePage+1)%5;refreshSwatches();scheduleSave();});
+        left.setOnClickListener(v->{doc.palettePage=(doc.palettePage+5)%6;refreshSwatches();scheduleSave();});
+        right.setOnClickListener(v->{doc.palettePage=(doc.palettePage+1)%6;refreshSwatches();scheduleSave();});
         Ui.add(container,controls,5);
         swatchRow=Ui.row(this);
         Ui.add(container,swatchRow,5);
@@ -329,10 +329,10 @@ public final class AtelierEditorActivity extends Activity {
         swatchRow.removeAllViews();
         int[] group;
         int page=doc.palettePage;
-        if(page<4){
-            group=new int[10];
-            System.arraycopy(COLORS,page*10,group,0,10);
-            pageLabel.setText("Farben  "+(page+1)+" / 4");
+        if(page<5){
+            group=new int[8];
+            System.arraycopy(COLORS,page*8,group,0,8);
+            pageLabel.setText("Farben  "+(page+1)+" / 5");
         }else{
             group=paletteMemory.frequent(10);
             pageLabel.setText("✦  Häufig verwendet");
