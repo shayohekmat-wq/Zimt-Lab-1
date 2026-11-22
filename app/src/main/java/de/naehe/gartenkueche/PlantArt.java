@@ -13,16 +13,19 @@ public final class PlantArt {
     public static final int TOTAL = SIZE * SIZE;
     public static final int PURPLE = Color.rgb(77, 30, 113);
     final boolean[] outline = new boolean[TOTAL];
-    final int[] pigments = new int[TOTAL]; // transparent=unset, any solid ARGB is painted
+    final int[] pigments = new int[TOTAL]; // colors retained even if temporarily masked
+    final int[] outlineColors = new int[TOTAL]; // 0 means default purple
+    // Fill mask is derived from the most recently accepted outline topology.
     int startX = -1, startY = -1, endX = -1, endY = -1, points = 0;
-    private boolean[] inside = null;
-    private int detectedRegions;
+    boolean[] inside = null;
+    int detectedRegions;
     boolean grayOutline = false;
 
     public PlantArt copy() {
         PlantArt c = new PlantArt();
         System.arraycopy(outline, 0, c.outline, 0, TOTAL);
         System.arraycopy(pigments, 0, c.pigments, 0, TOTAL);
+        System.arraycopy(outlineColors, 0, c.outlineColors, 0, TOTAL);
         c.startX = startX; c.startY = startY;
         c.endX = endX; c.endY = endY; c.points = points;
         if (inside != null) c.inside = inside.clone();
@@ -33,16 +36,30 @@ public final class PlantArt {
     public void clear() {
         Arrays.fill(outline, false);
         Arrays.fill(pigments, 0);
+        Arrays.fill(outlineColors, 0);
         startX = -1; startY = -1; endX = -1; endY = -1; points = 0;
         inside = null;detectedRegions=0; grayOutline = false;
     }
     private static int at(int x, int y) { return y * SIZE + x; }
-    public void drawContour(int x, int y) {
-        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
-        if (startX == -1) { startX = x; startY = y; }
-        int i = at(x, y);
-        if (!outline[i]) { outline[i] = true; points++; }
-        endX = x; endY = y; inside = null;
+    public void drawContour(int x, int y) { drawContour(x,y,PURPLE); }
+    public void drawContour(int x,int y,int rgba) {
+        if(x<0||x>=SIZE||y<0||y>=SIZE)return;
+        if(startX<0){startX=x;startY=y;}
+        int i=at(x,y);
+        if(!outline[i]){outline[i]=true;points++;}
+        outlineColors[i]=rgba;
+        endX=x;endY=y;
+        // Keep accepted fill mask until the new outline is reviewed.
+        // Otherwise colored work would vanish immediately when editing contours.
+    }
+    public void eraseContour(int x,int y){
+        if(x<0||x>=SIZE||y<0||y>=SIZE)return;
+        int i=at(x,y);
+        if(outline[i]){outline[i]=false;outlineColors[i]=0;points=Math.max(0,points-1);}
+    }
+    public int eyedropper(int x,int y){
+        if(x<0||x>=SIZE||y<0||y>=SIZE)return 0;
+        return renderedPixel(x,y);
     }
     public void drawContourLine(int x0, int y0, int x1, int y1) {
         int dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0);
@@ -62,14 +79,16 @@ public final class PlantArt {
      * Short gaps up to four logical pixels may be closed automatically.
      */
     public boolean validate() {
-        inside = null;detectedRegions=0;
         ContourDetector.Result result = ContourDetector.detect(outline, SIZE);
         if (result == null) return false;
         // Add healed bridge pixels without EVER deleting an original pen pixel.
         // Outline = all strokes, including open stems and disconnected details.
         // Inside = only the regions enclosed by those strokes.
         for (int i = 0; i < TOTAL; i++) {
-            if (result.outline[i]) outline[i] = true;
+            if (result.outline[i] && !outline[i]) {
+                outline[i] = true;
+                outlineColors[i] = PURPLE;
+            }
         }
         inside = result.interior;
         detectedRegions=result.regions;
@@ -125,13 +144,15 @@ public final class PlantArt {
     }
     public int renderedPixel(int x, int y) {
         int i=y*SIZE+x;
-        return outline[i] ? (grayOutline ? 0xFF565656 : PURPLE) : pigments[i];
+        return outline[i] ? (grayOutline ? 0xFF565656 : (outlineColors[i]==0?PURPLE:outlineColors[i]))
+                : (inside != null && inside[i] ? pigments[i] : 0);
     }
     public void renderInto(Bitmap target, int[] scratch) {
         if (target.getWidth()!=SIZE || target.getHeight()!=SIZE || scratch.length<TOTAL)
             throw new IllegalArgumentException("Expected 300x300 ARGB bitmap");
-        final int outlineColor=grayOutline ? 0xFF565656 : PURPLE;
-        for (int i=0;i<TOTAL;i++)scratch[i]=outline[i] ? outlineColor : pigments[i];
+        for(int i=0;i<TOTAL;i++)scratch[i]=outline[i]
+            ? (grayOutline ? 0xFF565656 : (outlineColors[i]==0?PURPLE:outlineColors[i]))
+            : (inside!=null && inside[i] ? pigments[i] : 0);
         target.setPixels(scratch,0,SIZE,0,0,SIZE,SIZE);
     }
     /** Tight logical-pixel crop including ALL separated contour components. */
@@ -143,8 +164,14 @@ public final class PlantArt {
         public boolean contains(int x,int y){return x>=left&&x<right&&y>=top&&y<bottom;}
     }
     public Bounds bounds() {
-        SpriteGeometry.Box b=SpriteGeometry.bounds(outline,pigments,SIZE,SIZE);
-        return new Bounds(b.left,b.top,b.right,b.bottom);
+        int l=SIZE,t=SIZE,r=-1,b=-1;
+        for(int y=0;y<SIZE;y++)for(int x=0;x<SIZE;x++){
+            int i=y*SIZE+x;
+            if(outline[i] || (inside!=null && inside[i] && Color.alpha(pigments[i])>0)){
+                if(x<l)l=x;if(y<t)t=y;if(x>r)r=x;if(y>b)b=y;
+            }
+        }
+        return r<l?new Bounds(0,0,0,0):new Bounds(l,t,r+1,b+1);
     }
     /** Never scale pixels to fit a 300x300 placeholder. */
     public Bitmap croppedBitmap(Bounds bounds){
@@ -179,6 +206,10 @@ public final class PlantArt {
         stream.writeInt(points);
         for (boolean b : outline) stream.writeBoolean(b);
         for (int rgba : pigments) stream.writeInt(rgba);
+        for (int rgba : outlineColors) stream.writeInt(rgba);
+        stream.writeBoolean(inside!=null);
+        if(inside!=null) for(boolean filled:inside)stream.writeBoolean(filled);
+        stream.writeInt(detectedRegions);
     }
     public static PlantArt read(DataInputStream stream) throws IOException {
         PlantArt a = new PlantArt();
@@ -188,8 +219,12 @@ public final class PlantArt {
         if (a.points < 0 || a.points > TOTAL) throw new IOException("Invalid outline length");
         for (int i=0;i<TOTAL;i++) a.outline[i] = stream.readBoolean();
         for (int i=0;i<TOTAL;i++) a.pigments[i] = stream.readInt();
-        // Reading saved artwork must NEVER re-run expensive contour detection.
-        // The active COLOR draft explicitly rebuilds its interior mask once on load.
+        for (int i=0;i<TOTAL;i++) a.outlineColors[i] = stream.readInt();
+        if(stream.readBoolean()){
+            a.inside=new boolean[TOTAL];
+            for(int i=0;i<TOTAL;i++)a.inside[i]=stream.readBoolean();
+        }
+        a.detectedRegions=stream.readInt();
         return a;
     }
 }
