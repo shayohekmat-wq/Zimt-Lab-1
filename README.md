@@ -1,5 +1,45 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.9 — Pflanzen-Atelier (nicht-destruktiver Editor)
+
+**Neue eigenständige Android-Test-App:** Paketkennung \`de.naehe.app.gartenkueche.lab9\`, Android 6.0+; die älteren Lab-Versionen und ZIMT bleiben installiert und unverändert. **Kein Update-/Importmechanismus** zwischen älteren Lab-Apps in dieser Version.
+
+### Design
+- Eigenständige, warme dunkle Holz-/Messingoptik mit subtilen Farbverläufen, deutlichen aktiven Werkzeugzuständen und neutralem Editor-Canvas. An der Designreferenz orientiert, nicht eins zu eins reproduziert.
+- Eigenständiger neuer Einstieg: Evolutionsstufen 1–10 auswählen und bei vorhandenem Entwurf fortsetzen.
+- Größtmögliche Zeichenfläche, kleine Smartphone-Displays und Android 6.0+ bleiben berücksichtigt; keine kostenintensiven Daueranimationen.
+
+### Werkzeuge, Farben und Bedienung
+- **Fünf Werkzeuge:** 1-Pixel-Stift, 3-Pixel-Pinsel, Radierer, Pipette und Fülleimer.
+- Immer sichtbar: aktuelles Werkzeug, Größe, Ebene und Hex-Farbe. Ausgewählte Werkzeuge erhalten gut unterscheidbare Messing-/Holzrahmen.
+- Die 40 Grundfarben liegen auf vier über Pfeile steuerbaren Seiten. Die fünfte Seite zeigt **häufig tatsächlich gemalte Farben**; die Statistik bleibt lokal erhalten.
+- HSV-Farbkreis mit Helligkeit, freier Farbwahl und Farbprobe. Pigment und Konturlinie speichern eigene ARGB-Pixelwerte.
+- Undo/Redo verwenden eine **sparsame Pixel-Differenzliste**, die beim Wechsel zwischen Kontur und Farbe sowie beim Navigieren zu einer anderen Evolutionsstufe nicht gelöscht wird. Der Verlauf gilt für die aktuelle App-Sitzung; nach einem kompletten Prozessneustart wird der letzte atomar gespeicherte **Entwurfsstand**, nicht der vollständige Undo-Verlauf, wiederhergestellt.
+- Fingerhilfe beim Zeichnen, Zwei-Finger-Pan und Pinchzoom, Raster ein/aus und Zoomtasten.
+
+### Schutz vor verlorenem Fortschritt
+- **Separate Konturlinien, Konturfarben, Farbwerte und berechnete Füllmaske.** Auch verdeckte alte Farbwerte bleiben gespeichert.
+- **Kontur ↔ Farbe ist jederzeit möglich.** Beim Übergang wird die neue Innenmaske asynchron geprüft. Könnten bereits sichtbare Farben vorübergehend verdeckt werden, zeigt die App direkt **unter dem neu berechneten Bild** eine Entscheidung: „Neue Kontur behalten?“ → „Behalten & weiter“, „Alte Kontur“, „Unterschied anzeigen“.
+- Kleine Konturänderungen ohne gefährdete Farben werden ohne Unterbrechung übernommen; offene Stiele und mehrere geschlossene Bereiche bleiben erhalten.
+- Unterbrochene Konturarbeiten bleiben mit **„noch zu prüfen“** über Stagewechsel und App-Neustart markiert.
+- Alle angefangenen Evolutionsstufen können über die Stage-Leiste erneut geöffnet und verändert werden, ohne die anderen Stufen oder Farben zu löschen.
+- Entwürfe werden mit Android \`AtomicFile\` und GZIP auf dem I/O-Worker gesichert. Die App erstellt vollständige Sicherheits-Snapshots nach Bearbeitungspausen und beim Verlassen der Activity; ein vollständiges transaktionales Änderungsjournal ist eine spätere Erweiterung.
+
+### Weiterhin enthalten
+800×600-Beet, offene Stiele, alle Mehrkonturen als ein Objekt, pixelgenauer Zuschnitt, 20%-Vorlage aus vorheriger Evolutionsstufe, 1–80×-Zeitraffer, echte 5-Sekunden-Gießaktion, Schwierigkeitsgrade, Evolution/Regression/Tod, Standard- oder eigene Todesform.
+
+### Hinweise zu Reife und offenen Punkten
+- Ein grüner GitHub-Build bestätigt Compilation und automatisierte Tests, nicht echte Geräteleistung. Android-6-/Small-Display-Tests sowie Absturz-Recovery sind weiter zu überprüfen.
+- Der Farbkreis wird frei nach HSV ausgewählt; angeheftete Lieblingsfarben und ein HEX-Eingabefeld sind noch nicht verfügbar.
+- Der **über Prozessneustarts hinweg wiederherstellbare Undo-Verlauf** sowie ein append-only Journal sind noch nicht umgesetzt; der fertige Entwurf selbst wird aber gesichert.
+- Keine automatische Datenübernahme von lab8 oder anderen separat installierten APKs: Android isoliert deren private Dateien.
+
+**Vollständige Spezifikation:** [BUILD_PLAN_0.0.9_ATELIER_NONDESTRUCTIVE.md](BUILD_PLAN_0.0.9_ATELIER_NONDESTRUCTIVE.md).  
+**APK:** Über [GitHub Actions](https://github.com/shayohekmat-wq/Zimt-Lab-1/actions), Artifakt \`Garten-und-Kueche-v0.0.9-Atelier-APK\`; zusätzlich als direkter APK-Download im Chat.
+
+---
+
+
 Eigenständige Android-Test-App für spätere Integration in ZIMT. **Java + Android Canvas**, Android **6.0+ (API 23)**, offline-first und separat installierbar. ZIMT bleibt unverändert.
 
 ## Build 0.0.8 — Stiele und offene Linien bleiben erhalten
