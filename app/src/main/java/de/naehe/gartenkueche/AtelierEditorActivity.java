@@ -334,7 +334,7 @@ public final class AtelierEditorActivity extends Activity {
             System.arraycopy(COLORS,page*8,group,0,8);
             pageLabel.setText("Farben  "+(page+1)+" / 5");
         }else{
-            group=paletteMemory.frequent(10);
+            group=paletteMemory.frequent(8);
             pageLabel.setText("✦  Häufig verwendet");
         }
         if(group.length==0){
@@ -376,10 +376,10 @@ public final class AtelierEditorActivity extends Activity {
             sample.setText(String.format(Locale.US,"Farbe: #%06X",rgba&0xffffff));
             sample.setTextColor(rgba);
         });
-        wheel.setBrightness(Math.max(.05f,hsv[2]));
+        wheel.setBrightness(Math.max(0f,hsv[2]));
         brightness.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             public void onProgressChanged(SeekBar b,int progress,boolean fromUser){
-                wheel.setBrightness(Math.max(.05f,progress/100f));
+                wheel.setBrightness(Math.max(0f,progress/100f));
             }
             public void onStartTrackingTouch(SeekBar b){}
             public void onStopTrackingTouch(SeekBar b){}
