@@ -12,7 +12,7 @@
 ### Werkzeuge, Farben und Bedienung
 - **Fünf Werkzeuge:** 1-Pixel-Stift, 3-Pixel-Pinsel, Radierer, Pipette und Fülleimer.
 - Immer sichtbar: aktuelles Werkzeug, Größe, Ebene und Hex-Farbe. Ausgewählte Werkzeuge erhalten gut unterscheidbare Messing-/Holzrahmen.
-- Die 40 Grundfarben liegen auf vier über Pfeile steuerbaren Seiten. Die fünfte Seite zeigt **häufig tatsächlich gemalte Farben**; die Statistik bleibt lokal erhalten.
+- Die 40 Grundfarben liegen auf fünf über Pfeile steuerbaren Seiten. Die fünfte Seite zeigt **häufig tatsächlich gemalte Farben**; die Statistik bleibt lokal erhalten.
 - HSV-Farbkreis mit Helligkeit, freier Farbwahl und Farbprobe. Pigment und Konturlinie speichern eigene ARGB-Pixelwerte.
 - Undo/Redo verwenden eine **sparsame Pixel-Differenzliste**, die beim Wechsel zwischen Kontur und Farbe sowie beim Navigieren zu einer anderen Evolutionsstufe nicht gelöscht wird. Der Verlauf gilt für die aktuelle App-Sitzung; nach einem kompletten Prozessneustart wird der letzte atomar gespeicherte **Entwurfsstand**, nicht der vollständige Undo-Verlauf, wiederhergestellt.
 - Fingerhilfe beim Zeichnen, Zwei-Finger-Pan und Pinchzoom, Raster ein/aus und Zoomtasten.
