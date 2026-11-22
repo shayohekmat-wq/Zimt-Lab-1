@@ -11,7 +11,7 @@ import java.util.zip.GZIPOutputStream;
 /** Prototype disk persistence; schema is explicitly versioned for future SQLite migration. */
 public final class PlantStore {
     private static final int MAGIC = 0x5A504C32;
-    private static final int VERSION = 3;
+    private static final int VERSION = 4;
     private static final String TAG = "GartenKuecheStorage";
     public static final String[] DIFFICULTIES = {"Pflegeleicht", "Medium", "Profi", "Diva"};
     private final File root;
