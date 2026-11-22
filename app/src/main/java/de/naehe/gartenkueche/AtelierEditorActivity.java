@@ -448,7 +448,7 @@ public final class AtelierEditorActivity extends Activity {
         if(busy)return;
         if(i<0||i>=doc.count)return;
         doc.active=i;doc.deathMode=false;
-        doc.colorMode=goColor;
+        doc.colorMode=goColor&&!doc.needsReview[i];
         doc.revision++;scheduleSave();rebuild();
     }
     private void validateOutline(){
@@ -499,7 +499,7 @@ public final class AtelierEditorActivity extends Activity {
             history().begin(art());
             doc.restoreAcceptedOutline();
             history().record(art());
-            doc.colorMode=true;doc.revision++;
+            doc.colorMode=true;doc.clearReview();doc.revision++;
             busy=false;pendingCandidate=null;
             scheduleSave();rebuild();
         });
@@ -513,6 +513,7 @@ public final class AtelierEditorActivity extends Activity {
         doc.acceptCurrent(candidate);
         history().record(art());
         doc.colorMode=true;
+        doc.clearReview();
         doc.revision++;
         busy=false;pendingCandidate=null;
         scheduleSave();rebuild();
@@ -538,7 +539,7 @@ public final class AtelierEditorActivity extends Activity {
     }
     private void finishPlant(PlantArt deathArt){
         if(busy||complete)return;
-        for(int i=0;i<doc.count;i++)if(!doc.completed[i]||!doc.stages[i].hasInterior()){
+        for(int i=0;i<doc.count;i++)if(!doc.completed[i]||!doc.stages[i].hasInterior()||doc.needsReview[i]){
             notifyShort("Bitte zuerst Evolution "+(i+1)+" abschließen");
             navigateStage(i,doc.stages[i].hasInterior());
             return;
@@ -729,6 +730,7 @@ public final class AtelierEditorActivity extends Activity {
                 // First gesture ends as a valid undoable stroke before panning.
                 if(oldX>=0){history().record(art());if(strokeChanged){
                     if(doc.tool!=2)paletteMemory.used(doc.selectedColor);
+                    if(!doc.colorMode)doc.markReview();
                     doc.revision++;scheduleSave();
                 }}
                 oldX=-1;oldY=-1;
@@ -761,6 +763,7 @@ public final class AtelierEditorActivity extends Activity {
                     history().record(art());
                     if(strokeChanged){
                         if(doc.tool!=2)paletteMemory.used(doc.selectedColor);
+                        if(!doc.colorMode)doc.markReview();
                         doc.revision++;scheduleSave();
                     }
                 }
