@@ -18,3 +18,7 @@
 
 ## Projektkontext
 **Lab 1 Garten & Küche:** bestehende Java/Canvas-Architektur und Android API23 laut bisherigem Audit erhalten. Kontur-/Füll-/Pigmentoperationen dürfen Fortschritt nicht zerstören; Undo/Redo, Vorschau, Prozessneustart und Eingabeabbruch schützen. Keine unnötige Compose-Migration. Standalone installierbar und für ZIMT modular übernehmbar.
+
+
+## Engineering Legibility Protocol 1.0
+Verbindlich ergänzend zur Development Doctrine: [ELP 1.0](docs/ENGINEERING_LEGIBILITY_PROTOCOL.md). Bei jeder relevanten Änderung verständliche Verantwortlichkeiten, explizite Datenwirkungen und nachvollziehbare Übergaben sicherstellen. Bestehende Dokumente und Nachweise nutzen; konkrete Probleme in der kanonischen Queue priorisieren. Keine separate Aufräumphase, keine zusätzlichen pauschalen Gates; Doctrine 7.0 und ihre Sicherheits- und Fortsetzungsregeln bleiben unverändert maßgeblich.
