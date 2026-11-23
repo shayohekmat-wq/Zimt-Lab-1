@@ -39,3 +39,8 @@ For direct implementation orders, avoid progress-only messages and premature com
 - Respect atomic snapshot saving, undo/redo semantics and the existing editor state model. Distinguish in-session undo history from persisted drafts; do not claim persistent undo history if unimplemented.
 - Test stylus/finger drawing, pan/zoom, contour and fill transitions, rotation, process interruption and small screens. Older Lab APKs use separate package IDs; do not claim automatic data migration.
 - Read `BUILD_PLAN_0.0.9_ATELIER_NONDESTRUCTIVE.md` and the actual build workflow before making changes.
+
+### Motion First 2.1 override (newer, binding)
+- **Moto-G6-first, not generalized adaptive quality control:** follow `docs/MOTION_FIRST_PLAN.md` and researched `docs/MOTO_G6_REFERENCE.md`. The older `docs/ADAPTIVE_MOTION.md` now explicitly defers to this decision.
+- Optimize actual expensive animations while preserving maximalist motion, identical interaction choreography and input priority. No automatic quality tiers unless measured failures require a narrow exception.
+- **Deferred ZIMT Performance Lab:** separately installable, privacy-preserving, user-run physical-device test APK; record real frame/jank/memory/lifecycle metrics and export reports. Do not claim a real Motorola test before it happens.
