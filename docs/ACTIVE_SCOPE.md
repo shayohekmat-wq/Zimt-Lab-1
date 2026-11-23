@@ -20,3 +20,6 @@ Standalone Android 6.0+ (API 23) Java/Canvas drawing and plant-evolution atelier
 4. **Portability:** separate drawing domain/state from Activity/Canvas adapters only where real integration requires it.
 
 No global feature freeze. New design and interaction improvements may proceed independently, with their own relevant gates.
+
+## Doctrine 7.0 — Scope und Akzeptanzabdeckung
+Die Priorisierung begrenzt nicht die Anzahl der autorisierten Editor-Funktionen und Folgearbeiten. `docs/WORK_QUEUE.md` bildet die vorläufigen Kriterien AC-L1-001 bis AC-L1-005 ab; weitere unerfüllte Kriterien und Bugs bei Code-/Testprüfung ergänzen. Keine pauschale Feature-Sperre oder vorzeitige Fertigmeldung nach einem Slice.
