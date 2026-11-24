@@ -11,7 +11,8 @@ final class AtelierSnapshot {
 
     static void write(OutputStream stream, AtelierDocument d) throws IOException {
         GZIPOutputStream gzip=new GZIPOutputStream(stream);
-        DataOutputStream out=new DataOutputStream(gzip);
+        // PlantArt writes individual pixels. Batch them before entering the compression stream.
+        DataOutputStream out=new DataOutputStream(new BufferedOutputStream(gzip));
         out.writeInt(MAGIC);out.writeInt(VERSION);
         out.writeInt(d.count);out.writeInt(d.active);out.writeBoolean(d.deathMode);
         out.writeBoolean(d.deathNeedsReview);
@@ -32,7 +33,7 @@ final class AtelierSnapshot {
     }
 
     static AtelierDocument read(InputStream stream) throws IOException {
-        try(DataInputStream in=new DataInputStream(new GZIPInputStream(stream))){
+        try(DataInputStream in=new DataInputStream(new BufferedInputStream(new GZIPInputStream(stream)))){
             if(in.readInt()!=MAGIC || in.readInt()!=VERSION)throw new IOException("Unsupported atelier version");
             int n=in.readInt();
             AtelierDocument d=new AtelierDocument(n);

@@ -13,7 +13,6 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import static org.junit.Assert.*;
-import static org.junit.Assume.assumeTrue;
 
 @RunWith(AndroidJUnit4.class)
 public final class ContourReviewRecreationTest {
@@ -30,8 +29,11 @@ public final class ContourReviewRecreationTest {
     private static void verifyDecision(boolean accept) throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         AtelierStore store = new AtelierStore(context);
-        assumeTrue("Test requires an installation without an existing atelier draft", store.load() == null);
-        try {
+        assertNull("Test requires an installation without an existing atelier draft", store.load());
+        try (AutoCloseable cleanup = () -> {
+            awaitEditorIo();
+            store.clear();
+        }) {
             store.save(draftWithPaintedContourChange());
             Intent intent = new Intent(context, AtelierEditorActivity.class)
                 .putExtra("resume_draft", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -56,9 +58,6 @@ public final class ContourReviewRecreationTest {
             assertEquals(accept, result.current().outline[pixel]);
             assertEquals(PAINT, result.current().pigments[pixel]);
             if (!accept) assertEquals(PAINT, result.current().renderedPixel(60, 60));
-        } finally {
-            awaitEditorIo();
-            store.clear();
         }
     }
 

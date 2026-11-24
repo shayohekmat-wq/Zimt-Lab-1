@@ -2,7 +2,7 @@
 
 ## Build 0.0.13 — Version der installierten App
 
-Launcher und Startseite zeigen die Version des installierten Builds an. Diese Ausgabe hat die eigene Paketkennung `de.naehe.app.gartenkueche.lab13`.
+Launcher und Startseite zeigen die Version des installierten Builds an. Das Atelier bündelt die Pixeldaten beim Speichern und Laden seiner Entwürfe. Diese Ausgabe hat die eigene Paketkennung `de.naehe.app.gartenkueche.lab13`.
 
 ## Build 0.0.12 — Konturvorschau nach Drehung
 
