@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.12 — Konturvorschau nach Drehung
+
+Eine offene Konturentscheidung wird beim erneuten Erstellen des Editors aus dem gespeicherten Entwurf wieder aufgebaut. So kannst du die Änderung nach der Unterbrechung weiterhin annehmen oder verwerfen. Eigenständiges Android-Paket `de.naehe.app.gartenkueche.lab12`.
+
 ## Build 0.0.11 — Zeichenverlauf
 
 Beim Rückgängigmachen und Wiederholen von Konturstrichen und Radierungen werden auch die Punktzahl und die Strichendpunkte wiederhergestellt. Das gilt auch, wenn zwischen den Strichen gefüllt oder mit Farbe gezeichnet wurde. Separat installierbare APK für Android 6.0+: `de.naehe.app.gartenkueche.lab11`.

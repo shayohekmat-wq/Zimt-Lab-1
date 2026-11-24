@@ -56,11 +56,14 @@ public final class AtelierEditorActivity extends Activity {
     private Button[] tools=new Button[5];
     private int pageGeneration;
     private boolean busy,complete,savingFinal,showGrid=true;
+    private static final String REVIEW_REVISION = "atelier_review_revision";
+    private long reviewToRestore = -1;
     private PlantArt pendingCandidate;
     private int pendingHidden;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
+        if (state != null) reviewToRestore = state.getLong(REVIEW_REVISION, -1);
         draftStore=new AtelierStore(this);
         plants=new PlantStore(this);
         paletteMemory=new PaletteMemory(this);
@@ -85,6 +88,11 @@ public final class AtelierEditorActivity extends Activity {
                     }
                     doc=saved;
                     initHistories();rebuild();
+                    if (reviewToRestore == doc.revision && !doc.colorMode && !doc.deathChoice()) {
+                        validateOutline();
+                    } else {
+                        reviewToRestore = -1;
+                    }
                 });
             });
         }else{
@@ -129,6 +137,12 @@ public final class AtelierEditorActivity extends Activity {
                 if(error!=null)android.util.Log.e("GartenKueche","Atelier autosave failed",error);
             });
         });
+    }
+    @Override protected void onSaveInstanceState(Bundle state) {
+        super.onSaveInstanceState(state);
+        // Rebuild the preview from the matching disk draft. Pixel buffers do not belong in the Bundle.
+        if (pendingCandidate != null) state.putLong(REVIEW_REVISION, doc.revision);
+        else if (reviewToRestore >= 0) state.putLong(REVIEW_REVISION, reviewToRestore);
     }
     @Override protected void onPause(){
         handler.removeCallbacks(autosave);
@@ -482,6 +496,8 @@ public final class AtelierEditorActivity extends Activity {
             boolean ok=candidate.validate();
             AppIo.onMain(()->{
                 if(isFinishing()||isDestroyed()||generation!=pageGeneration)return;
+                boolean restoringReview = reviewToRestore >= 0;
+                reviewToRestore = -1;
                 if(!ok){
                     busy=false;
                     if(pixelView!=null)pixelView.setEnabled(true);
@@ -494,6 +510,12 @@ public final class AtelierEditorActivity extends Activity {
                 if(hidden>0){
                     pendingCandidate=candidate;pendingHidden=hidden;
                     showTopologyPreview();
+                    return;
+                }
+                if (restoringReview) {
+                    busy=false;
+                    if(pixelView!=null)pixelView.setEnabled(true);
+                    rebuild();
                     return;
                 }
                 commitContour(candidate);

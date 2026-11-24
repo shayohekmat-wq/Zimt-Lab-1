@@ -86,6 +86,20 @@ public final class AtelierWorkflowTest {
         check(candidate.validate(),"revised outline valid");
         check(d.threatenedColors(candidate)>0,"review prompted for covered paint");
         check(art.pigments[80+82*300]==red,"pigment remains in uncommitted art");
+        // Save with a genuinely different proposal open. Rebuilding the preview must
+        // leave both the editable strokes and the last accepted contour intact.
+        java.io.ByteArrayOutputStream pendingBytes = new java.io.ByteArrayOutputStream();
+        AtelierSnapshot.write(pendingBytes, d);
+        AtelierDocument pending = AtelierSnapshot.read(new java.io.ByteArrayInputStream(pendingBytes.toByteArray()));
+        check(pending.revision == d.revision && pending.currentNeedsReview(), "matching review revision");
+        check(java.util.Arrays.equals(storedArt(art), storedArt(pending.current())), "pending drawing bytes");
+        PlantArt preview = pending.current().copy();
+        check(preview.validate() && pending.threatenedColors(preview) == d.threatenedColors(candidate),
+            "same warning after rebuilding preview");
+        pending.restoreAcceptedOutline();
+        check(!pending.current().outline[80+82*300] && pending.current().renderedPixel(80,82) == red,
+            "rejecting the reopened proposal reveals the original paint");
+
         PlantArt beforeCommit=d.acceptedCurrent().copy();
         System.arraycopy(art.pigments,0,beforeCommit.pigments,0,PlantArt.TOTAL);
         h[0].begin(beforeCommit);
