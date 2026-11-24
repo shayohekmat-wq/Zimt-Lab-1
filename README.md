@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.13 — Version der installierten App
+
+Launcher und Startseite zeigen die Version des installierten Builds an. Diese Ausgabe hat die eigene Paketkennung `de.naehe.app.gartenkueche.lab13`.
+
 ## Build 0.0.12 — Konturvorschau nach Drehung
 
 Eine offene Konturentscheidung wird beim erneuten Erstellen des Editors aus dem gespeicherten Entwurf wieder aufgebaut. So kannst du die Änderung nach der Unterbrechung weiterhin annehmen oder verwerfen. Eigenständiges Android-Paket `de.naehe.app.gartenkueche.lab12`.

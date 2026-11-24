@@ -1,0 +1,102 @@
+package de.naehe.gartenkueche;
+
+import android.content.Context;
+import android.content.Intent;
+import android.view.View;
+import android.widget.Button;
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+import java.util.ArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
+
+@RunWith(AndroidJUnit4.class)
+public final class ContourReviewRecreationTest {
+    private static final int PAINT = 0xffbc4152;
+
+    @Test public void acceptAfterRecreationKeepsPaintUnderNewOutline() throws Exception {
+        verifyDecision(true);
+    }
+
+    @Test public void rejectAfterRecreationRevealsOriginalPaint() throws Exception {
+        verifyDecision(false);
+    }
+
+    private static void verifyDecision(boolean accept) throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AtelierStore store = new AtelierStore(context);
+        assumeTrue("Test requires an installation without an existing atelier draft", store.load() == null);
+        try {
+            store.save(draftWithPaintedContourChange());
+            Intent intent = new Intent(context, AtelierEditorActivity.class)
+                .putExtra("resume_draft", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try (ActivityScenario<AtelierEditorActivity> scenario = ActivityScenario.launch(intent)) {
+                awaitEditorIo();
+                click(scenario, "◉  Farbe");
+                awaitEditorIo();
+                scenario.onActivity(activity -> button(activity, "Alte Kontur"));
+                scenario.recreate();
+                // Restoring loads the draft, then validates its contour on the same worker.
+                awaitEditorIo();
+                awaitEditorIo();
+                click(scenario, accept ? "Behalten & weiter" : "Alte Kontur");
+            }
+            awaitEditorIo();
+            AtelierDocument result = store.load();
+            assertNotNull(result);
+            assertTrue(result.colorMode);
+            assertFalse(result.currentNeedsReview());
+            int pixel = 60 * PlantArt.SIZE + 60;
+            assertEquals(accept, result.acceptedCurrent().outline[pixel]);
+            assertEquals(accept, result.current().outline[pixel]);
+            assertEquals(PAINT, result.current().pigments[pixel]);
+            if (!accept) assertEquals(PAINT, result.current().renderedPixel(60, 60));
+        } finally {
+            awaitEditorIo();
+            store.clear();
+        }
+    }
+
+    private static AtelierDocument draftWithPaintedContourChange() {
+        AtelierDocument draft = new AtelierDocument(1);
+        PlantArt art = draft.current();
+        art.drawContourLine(40, 40, 80, 40);
+        art.drawContourLine(80, 40, 80, 80);
+        art.drawContourLine(80, 80, 40, 80);
+        art.drawContourLine(40, 80, 40, 40);
+        assertTrue(art.validate());
+        draft.acceptCurrent(art);
+        art.colorPixel(60, 60, PAINT);
+        draft.beginContourEdit();
+        art.drawContourLine(60, 40, 60, 80);
+        draft.markReview();
+        return draft;
+    }
+
+    private static void awaitEditorIo() throws InterruptedException {
+        CountDownLatch done = new CountDownLatch(1);
+        AppIo.execute(done::countDown);
+        assertTrue("Editor I/O stalled", done.await(10, TimeUnit.SECONDS));
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+    }
+
+    private static void click(ActivityScenario<AtelierEditorActivity> scenario, String label) {
+        scenario.onActivity(activity -> assertTrue(button(activity, label).performClick()));
+    }
+
+    private static Button button(AtelierEditorActivity activity, String label) {
+        ArrayList<View> matches = new ArrayList<>();
+        activity.getWindow().getDecorView().findViewsWithText(matches, label, View.FIND_VIEWS_WITH_TEXT);
+        for (View view : matches) {
+            if (view instanceof Button && view.isShown() && label.contentEquals(((Button)view).getText())) {
+                return (Button)view;
+            }
+        }
+        throw new AssertionError("Missing editor button: " + label);
+    }
+}
