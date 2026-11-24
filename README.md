@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.11 — Zeichenverlauf
+
+Beim Rückgängigmachen und Wiederholen von Konturstrichen und Radierungen werden auch die Punktzahl und die Strichendpunkte wiederhergestellt. Das gilt auch, wenn zwischen den Strichen gefüllt oder mit Farbe gezeichnet wurde. Separat installierbare APK für Android 6.0+: `de.naehe.app.gartenkueche.lab11`.
+
 ## Build 0.0.10 — Entwürfe nach Unterbrechungen wieder öffnen
 
 Der Editor lädt nach einer Activity-Neuerstellung den gespeicherten Entwurf. Ein Lesefehler führt zurück zur Auswahl. Dort lässt sich die Wiederherstellung wiederholen oder das Ersetzen ausdrücklich bestätigen. Die separate APK verwendet `de.naehe.app.gartenkueche.lab10` (Android 6.0+). Zeichnungen aus Lab 9 bleiben in dessen App-Speicher.

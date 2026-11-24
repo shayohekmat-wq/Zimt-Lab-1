@@ -5,7 +5,33 @@ import java.util.Arrays;
 
 /** Sparse reversible pixel edits, independent of stage/mode/tool navigation. */
 final class AtelierHistory {
+    private static final class OutlineState {
+        final int points, startX, startY, endX, endY;
+
+        OutlineState(PlantArt art) {
+            points = art.points;
+            startX = art.startX;
+            startY = art.startY;
+            endX = art.endX;
+            endY = art.endY;
+        }
+
+        boolean matches(PlantArt art) {
+            return points == art.points && startX == art.startX && startY == art.startY
+                && endX == art.endX && endY == art.endY;
+        }
+
+        void restore(PlantArt art) {
+            art.points = points;
+            art.startX = startX;
+            art.startY = startY;
+            art.endX = endX;
+            art.endY = endY;
+        }
+    }
+
     static final class Change {
+        OutlineState oldStroke, newStroke;
         int[] ids, oldColors,newColors,oldPigments,newPigments;
         boolean[] oldOutline,newOutline,oldInside,newInside;
         int oldRegionCount,newRegionCount;
@@ -28,8 +54,14 @@ final class AtelierHistory {
         }
         boolean maskChanged=(!Arrays.equals(before.inside,current.inside))
             || before.detectedRegions!=current.detectedRegions;
-        if(n==0&&!maskChanged){before=null;return;}
+        OutlineState oldStroke = new OutlineState(before);
+        boolean strokeChanged = !oldStroke.matches(current);
+        if(n==0&&!maskChanged&&!strokeChanged){before=null;return;}
         Change c=new Change();
+        if (strokeChanged) {
+            c.oldStroke = oldStroke;
+            c.newStroke = new OutlineState(current);
+        }
         c.ids=new int[n];c.oldColors=new int[n];c.newColors=new int[n];
         c.oldPigments=new int[n];c.newPigments=new int[n];
         c.oldOutline=new boolean[n];c.newOutline=new boolean[n];
@@ -64,6 +96,9 @@ final class AtelierHistory {
         Change c=redo.removeLast();apply(art,c,true);undo.addLast(c);return true;
     }
     private void apply(PlantArt art,Change c,boolean forward){
+        if (c.oldStroke != null) {
+            (forward ? c.newStroke : c.oldStroke).restore(art);
+        }
         for(int k=0;k<c.ids.length;k++){
             int i=c.ids[k];
             art.outline[i]=forward?c.newOutline[k]:c.oldOutline[k];

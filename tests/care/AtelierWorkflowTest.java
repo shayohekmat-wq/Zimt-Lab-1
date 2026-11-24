@@ -11,7 +11,55 @@ public final class AtelierWorkflowTest {
         a.drawContourLine(x+w,y+h,x,y+h);
         a.drawContourLine(x,y+h,x,y);
     }
+    private static byte[] storedArt(PlantArt art) throws java.io.IOException {
+        java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+        art.write(new java.io.DataOutputStream(bytes));
+        return bytes.toByteArray();
+    }
+
+    private static void mixedHistoryMatchesSavedDrawing() throws java.io.IOException {
+        AtelierHistory history = new AtelierHistory();
+        PlantArt art = new PlantArt();
+        rectangle(art, 3, 3, 8, 8);
+        check(art.validate(), "initial contour");
+        byte[][] snapshots = new byte[6][];
+        snapshots[0] = storedArt(art);
+
+        history.begin(art);
+        art.colorPixel(7, 7, Color.rgb(20, 40, 60));
+        history.record(art);
+        snapshots[1] = storedArt(art);
+        history.begin(art);
+        art.fillRegion(6, 6, Color.rgb(220, 120, 20));
+        history.record(art);
+        snapshots[2] = storedArt(art);
+        history.begin(art);
+        art.colorPixel(7, 7, 0);
+        history.record(art);
+        snapshots[3] = storedArt(art);
+        history.begin(art);
+        art.drawContourLine(7, 11, 7, 16);
+        history.record(art);
+        snapshots[4] = storedArt(art);
+        history.begin(art);
+        art.eraseContour(7, 15);
+        history.record(art);
+        snapshots[5] = storedArt(art);
+
+        for (int i = snapshots.length - 2; i >= 0; i--) {
+            check(history.undo(art), "undo available for mixed edit " + i);
+            check(java.util.Arrays.equals(snapshots[i], storedArt(art)),
+                "undo must restore the complete saved drawing at step " + i);
+        }
+        for (int i = 1; i < snapshots.length; i++) {
+            check(history.redo(art), "redo available for mixed edit " + i);
+            check(java.util.Arrays.equals(snapshots[i], storedArt(art)),
+                "redo must restore the complete saved drawing at step " + i);
+        }
+    }
+
     public static void main(String[] args) throws Exception {
+        mixedHistoryMatchesSavedDrawing();
         AtelierDocument d=new AtelierDocument(3);
         AtelierHistory[] h={new AtelierHistory(),new AtelierHistory(),new AtelierHistory()};
         PlantArt art=d.current();

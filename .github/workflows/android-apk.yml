@@ -76,9 +76,9 @@ jobs:
         run: gradle :app:assembleDebug --no-daemon --stacktrace
       - name: Verify package allows side-by-side installation
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab10'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "name='de.naehe.app.gartenkueche.lab11'"
       - uses: actions/upload-artifact@v4
         with:
-          name: Garten-und-Kueche-v0.0.10-Atelier-APK
+          name: Garten-und-Kueche-v0.0.11-Atelier-APK
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
