@@ -11,7 +11,7 @@ public final class AtelierWorkflowTest {
         a.drawContourLine(x+w,y+h,x,y+h);
         a.drawContourLine(x,y+h,x,y);
     }
-    public static void main(String[] args){
+    public static void main(String[] args) throws Exception {
         AtelierDocument d=new AtelierDocument(3);
         AtelierHistory[] h={new AtelierHistory(),new AtelierHistory(),new AtelierHistory()};
         PlantArt art=d.current();
@@ -72,6 +72,24 @@ public final class AtelierWorkflowTest {
         recovered.active=0;
         check(recovered.current().pigments[80+82*300]==red,"deep copy preserves color");
         check(recovered.stages[1].hasInterior(),"deep copy preserves previous stage");
+
+        // Reopen exactly the bytes saved while a contour decision is pending.
+        d.beginContourEdit();
+        d.markReview();
+        java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
+        AtelierSnapshot.write(bytes,d);
+        byte[] snapshot=bytes.toByteArray();
+        AtelierDocument reopened=AtelierSnapshot.read(new java.io.ByteArrayInputStream(snapshot));
+        check(reopened.active==0 && reopened.currentNeedsReview(),"pending stage survived reload");
+        check(reopened.stages[1].hasInterior(),"second stage survived reload");
+        reopened.restoreAcceptedOutline();
+        check(reopened.current().pigments[80+82*300]==red,"rejecting after reload preserves paint");
+        try{
+            AtelierSnapshot.read(new java.io.ByteArrayInputStream(snapshot,0,snapshot.length-1));
+            throw new AssertionError("A truncated draft must raise a read failure");
+        }catch(java.io.IOException expected){
+            // This is an unreadable draft, distinct from an absent draft.
+        }
 
         System.out.println("AtelierWorkflowTest: non-destructive topology review, undo/redo, stages and stem passed.");
     }

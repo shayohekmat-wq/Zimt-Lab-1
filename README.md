@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.10 — Entwürfe nach Unterbrechungen wieder öffnen
+
+Der Editor lädt nach einer Activity-Neuerstellung den gespeicherten Entwurf. Ein Lesefehler führt zurück zur Auswahl. Dort lässt sich die Wiederherstellung wiederholen oder das Ersetzen ausdrücklich bestätigen. Die separate APK verwendet `de.naehe.app.gartenkueche.lab10` (Android 6.0+). Zeichnungen aus Lab 9 bleiben in dessen App-Speicher.
+
 ## Build 0.0.9 — Pflanzen-Atelier (nicht-destruktiver Editor)
 
 **Neue eigenständige Android-Test-App:** Paketkennung \`de.naehe.app.gartenkueche.lab9\`, Android 6.0+; die älteren Lab-Versionen und ZIMT bleiben installiert und unverändert. **Kein Update-/Importmechanismus** zwischen älteren Lab-Apps in dieser Version.

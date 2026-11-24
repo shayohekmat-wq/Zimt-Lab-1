@@ -85,7 +85,20 @@ public class StageSetupActivity extends Activity {
         setContentView(scroll);
 
         AppIo.execute(()->{
-            AtelierDocument saved=store.load();
+            final AtelierDocument saved;
+            try{
+                saved=store.load();
+            }catch(java.io.IOException unreadable){
+                android.util.Log.e("GartenKueche","Cannot read existing atelier draft",unreadable);
+                AppIo.onMain(()->{
+                    if(isFinishing()||isDestroyed())return;
+                    hasDraft=true; // A new drawing requires explicit replacement.
+                    info.setText("Der vorhandene Entwurf konnte nicht gelesen werden. Du kannst die Wiederherstellung erneut versuchen.");
+                    resume.setVisibility(View.VISIBLE);
+                    create.setEnabled(true);
+                });
+                return;
+            }
             AppIo.onMain(()->{
                 if(isFinishing()||isDestroyed())return;
                 hasDraft=saved!=null;

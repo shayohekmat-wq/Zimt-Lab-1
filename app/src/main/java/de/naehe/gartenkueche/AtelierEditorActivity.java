@@ -66,13 +66,24 @@ public final class AtelierEditorActivity extends Activity {
         paletteMemory=new PaletteMemory(this);
         getWindow().setStatusBarColor(0xFF1B1312);
         getWindow().setNavigationBarColor(0xFF1B1312);
-        if(getIntent().getBooleanExtra("resume_draft",false)){
+        if(state!=null || getIntent().getBooleanExtra("resume_draft",false)){
             setContentView(AtelierTheme.text(this,"Atelier wird wiederhergestellt …",19,true));
             AppIo.execute(()->{
-                AtelierDocument saved=draftStore.load();
+                final AtelierDocument saved;
+                try{
+                    saved=draftStore.load();
+                }catch(IOException unreadable){
+                    android.util.Log.e("GartenKueche","Cannot restore atelier draft",unreadable);
+                    AppIo.onMain(()->showRestoreFailure("Der gespeicherte Entwurf konnte nicht gelesen werden."));
+                    return;
+                }
                 AppIo.onMain(()->{
                     if(isFinishing()||isDestroyed())return;
-                    doc=saved!=null?saved:new AtelierDocument(1);
+                    if(saved==null){
+                        showRestoreFailure("Es wurde kein gespeicherter Entwurf gefunden.");
+                        return;
+                    }
+                    doc=saved;
                     initHistories();rebuild();
                 });
             });
@@ -80,6 +91,15 @@ public final class AtelierEditorActivity extends Activity {
             doc=new AtelierDocument(getIntent().getIntExtra("stage_count",3));
             initHistories();rebuild();
         }
+    }
+    private void showRestoreFailure(String message){
+        if(isFinishing()||isDestroyed())return;
+        new AlertDialog.Builder(this).setTitle("Atelier konnte nicht geöffnet werden")
+            .setMessage(message).setCancelable(false)
+            .setPositiveButton("Zur Auswahl",(dialog,which)->{
+                startActivity(new Intent(this,StageSetupActivity.class));
+                finish();
+            }).show();
     }
     private void initHistories(){
         histories=new AtelierHistory[doc.count+1];
