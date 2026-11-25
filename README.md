@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.17 — Konturentscheidung rückgängig machen
+
+Nach „Alte Kontur“ öffnet Rückgängig den Vorschlag erneut zur Prüfung. Die bestätigte Kontur und die Bemalung bleiben erhalten. Wiederholen stellt die bestätigte Kontur wieder her.
+
 ## Build 0.0.16 — Gespeicherten Entwurf ersetzen
 
 Beim Abbrechen bleibt der bisherige Entwurf erhalten. Nach Bestätigung speichert das Atelier den neuen Entwurf vor dem Öffnen des Editors. Auch nach einer Unterbrechung beim Öffnen kann er fortgesetzt werden.

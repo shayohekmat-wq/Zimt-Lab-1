@@ -454,15 +454,25 @@ public final class AtelierEditorActivity extends Activity {
 
     private void historyAction(boolean redo){
         if(busy)return;
-        boolean changed=redo?history().redo(art()):history().undo(art());
-        if(!changed){notifyShort(redo?"Nichts zu wiederholen":"Nichts rückgängig");return;}
-        // If we undid a topology validation, update the accepted baseline as well.
-        if(doc.colorMode && art().hasInterior()){
+        AtelierHistory.Kind change = redo ? history().redo(art()) : history().undo(art());
+        if (change == null) { notifyShort(redo?"Nichts zu wiederholen":"Nichts rückgängig"); return; }
+        boolean wasColorMode = doc.colorMode;
+        if (change == AtelierHistory.Kind.RESTORE_ACCEPTED_OUTLINE) {
+            // Undoing a rejection reopens the proposal. Keep the independently accepted baseline.
+            doc.colorMode = redo;
+            if (redo) {
+                doc.clearReview();
+            } else {
+                doc.markReview();
+                if (doc.tool == 4) doc.tool = 0;
+            }
+        } else if (doc.colorMode && art().hasInterior()) {
             if(doc.deathMode)doc.acceptedDeath=art().copy();
             else doc.accepted[doc.active]=art().copy();
         }
         doc.revision++;
-        if(pixelView!=null)pixelView.dirty();
+        if (doc.colorMode != wasColorMode) rebuild();
+        else if (pixelView != null) pixelView.dirty();
         scheduleSave();
     }
     private void navigateBack(){
@@ -534,10 +544,7 @@ public final class AtelierEditorActivity extends Activity {
             "Du kannst weiterzeichnen oder deine letzte gültige Kontur mit allen bemalten Farben wiederherstellen.",13,false),8);
         Button restore=AtelierTheme.button(this,"Letzte gültige Kontur wiederherstellen",true);
         restore.setOnClickListener(v->{
-            history().begin(art());
-            doc.restoreAcceptedOutline();
-            history().record(art());
-            doc.clearReview();doc.colorMode=true;
+            history().restoreAcceptedOutline(doc);
             doc.revision++;scheduleSave();rebuild();
         });
         Ui.add(previewPanel,restore,6);
@@ -562,10 +569,8 @@ public final class AtelierEditorActivity extends Activity {
             if(pendingCandidate!=null)commitContour(pendingCandidate);
         });
         revert.setOnClickListener(v->{
-            history().begin(art());
-            doc.restoreAcceptedOutline();
-            history().record(art());
-            doc.colorMode=true;doc.clearReview();doc.revision++;
+            history().restoreAcceptedOutline(doc);
+            doc.revision++;
             busy=false;pendingCandidate=null;
             scheduleSave();rebuild();
         });

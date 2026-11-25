@@ -30,7 +30,11 @@ final class AtelierHistory {
         }
     }
 
+    enum Kind { ART, RESTORE_ACCEPTED_OUTLINE }
+
     static final class Change {
+        final Kind kind;
+        Change(Kind kind) { this.kind = kind; }
         OutlineState oldStroke, newStroke;
         int[] ids, oldColors,newColors,oldPigments,newPigments;
         boolean[] oldOutline,newOutline,oldInside,newInside;
@@ -46,10 +50,22 @@ final class AtelierHistory {
         if(before==null)return;
         PlantArt previous = before;
         before = null;
-        record(previous, current);
+        record(previous, current, Kind.ART);
     }
 
-    void record(PlantArt before, PlantArt current){
+    void restoreAcceptedOutline(AtelierDocument doc) {
+        PlantArt proposed = doc.current().copy();
+        doc.restoreAcceptedOutline();
+        record(proposed, doc.current(), Kind.RESTORE_ACCEPTED_OUTLINE);
+        doc.clearReview();
+        doc.colorMode = true;
+    }
+
+    void record(PlantArt before, PlantArt current) {
+        record(before, current, Kind.ART);
+    }
+
+    private void record(PlantArt before, PlantArt current, Kind kind){
         // Two primitive-array passes avoid boxing 90,000 Integer objects
         // after a full-area bucket fill on older Android devices.
         int n=0;
@@ -62,8 +78,8 @@ final class AtelierHistory {
             || before.detectedRegions!=current.detectedRegions;
         OutlineState oldStroke = new OutlineState(before);
         boolean strokeChanged = !oldStroke.matches(current);
-        if(n==0&&!maskChanged&&!strokeChanged)return;
-        Change c=new Change();
+        if(n==0&&!maskChanged&&!strokeChanged && kind==Kind.ART)return;
+        Change c=new Change(kind);
         if (strokeChanged) {
             c.oldStroke = oldStroke;
             c.newStroke = new OutlineState(current);
@@ -93,13 +109,20 @@ final class AtelierHistory {
         while(undo.size()>MAX)undo.removeFirst();
         redo.clear();
     }
-    boolean undo(PlantArt art){
-        if(undo.isEmpty())return false;
-        Change c=undo.removeLast();apply(art,c,false);redo.addLast(c);return true;
+    Kind undo(PlantArt art) {
+        if (undo.isEmpty()) return null;
+        Change change = undo.removeLast();
+        apply(art, change, false);
+        redo.addLast(change);
+        return change.kind;
     }
-    boolean redo(PlantArt art){
-        if(redo.isEmpty())return false;
-        Change c=redo.removeLast();apply(art,c,true);undo.addLast(c);return true;
+
+    Kind redo(PlantArt art) {
+        if (redo.isEmpty()) return null;
+        Change change = redo.removeLast();
+        apply(art, change, true);
+        undo.addLast(change);
+        return change.kind;
     }
     private void apply(PlantArt art,Change c,boolean forward){
         if (c.oldStroke != null) {

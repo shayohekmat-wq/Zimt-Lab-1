@@ -47,12 +47,12 @@ public final class AtelierWorkflowTest {
         snapshots[5] = storedArt(art);
 
         for (int i = snapshots.length - 2; i >= 0; i--) {
-            check(history.undo(art), "undo available for mixed edit " + i);
+            check(history.undo(art) != null, "undo available for mixed edit " + i);
             check(java.util.Arrays.equals(snapshots[i], storedArt(art)),
                 "undo must restore the complete saved drawing at step " + i);
         }
         for (int i = 1; i < snapshots.length; i++) {
-            check(history.redo(art), "redo available for mixed edit " + i);
+            check(history.redo(art) != null, "redo available for mixed edit " + i);
             check(java.util.Arrays.equals(snapshots[i], storedArt(art)),
                 "redo must restore the complete saved drawing at step " + i);
         }
@@ -110,7 +110,7 @@ public final class AtelierWorkflowTest {
         check(d.current().renderedPixel(80,82)!=red,"outline temporarily covers paint");
 
         // Undo the newly accepted topology, then go to another stage, and back.
-        check(h[0].undo(d.current()),"topology undo available across mode switch");
+        check(h[0].undo(d.current()) != null,"topology undo available across mode switch");
         check(d.current().renderedPixel(80,82)==red,"paint visible again after undo");
         d.completed[0]=true;
         d.active=1;d.colorMode=false;
@@ -123,7 +123,7 @@ public final class AtelierWorkflowTest {
         check(d.current().outline[86+166*300],"open stem preserved after stage navigation");
 
         // Undo/redo survives transitions between edit phases and stages.
-        check(h[0].redo(d.current()),"topology redo available after stage navigation");
+        check(h[0].redo(d.current()) != null,"topology redo available after stage navigation");
         check(d.current().pigments[80+82*300]==red,"redo did not destroy original paint");
 
         // Restore accepted outline without erasing any pigments.
