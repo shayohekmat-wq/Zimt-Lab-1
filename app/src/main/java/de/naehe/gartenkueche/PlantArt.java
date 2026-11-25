@@ -6,6 +6,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.BitSet;
 
 /** Logical 300x300 canvas. Outline and pigment remain separate for transfer to ZIMT. */
 public final class PlantArt {
@@ -113,16 +114,31 @@ public final class PlantArt {
         int i = at(x, y);
         if (inside[i]) pigments[i] = color;
     }
+    static final class RegionFill {
+        final BitSet pixels;
+        final int previousColor, newColor;
+
+        RegionFill(BitSet pixels, int previousColor, int newColor) {
+            this.pixels = pixels;
+            this.previousColor = previousColor;
+            this.newColor = newColor;
+        }
+    }
+
     /** Bucket fills a connected area of equal previous color; the outline stays untouched. */
     public void fillRegion(int x, int y, int color) {
-        if (inside == null || x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
+        fillRegionAndTrack(x, y, color);
+    }
+
+    RegionFill fillRegionAndTrack(int x, int y, int color) {
+        if (inside == null || x < 0 || x >= SIZE || y < 0 || y >= SIZE) return null;
         int seed = at(x, y);
-        if (!inside[seed] || pigments[seed] == color) return;
+        if (!inside[seed] || pigments[seed] == color) return null;
         int original = pigments[seed];
         int[] queue = new int[TOTAL];
-        boolean[] queued = new boolean[TOTAL];
+        BitSet queued = new BitSet();
         int head = 0, tail = 0;
-        queued[seed] = true; queue[tail++] = seed;
+        queued.set(seed); queue[tail++] = seed;
         while (head < tail) {
             int i = queue[head++], px = i % SIZE, py = i / SIZE;
             pigments[i] = color;
@@ -131,10 +147,11 @@ public final class PlantArt {
             if (py > 0) tail = fillOffer(i-SIZE, original, queued, queue, tail);
             if (py < SIZE-1) tail = fillOffer(i+SIZE, original, queued, queue, tail);
         }
+        return new RegionFill(queued, original, color);
     }
-    private int fillOffer(int i, int color, boolean[] seen, int[] queue, int tail) {
-        if (inside[i] && !seen[i] && pigments[i] == color) {
-            seen[i] = true; queue[tail++] = i;
+    private int fillOffer(int i, int color, BitSet seen, int[] queue, int tail) {
+        if (inside[i] && !seen.get(i) && pigments[i] == color) {
+            seen.set(i); queue[tail++] = i;
         }
         return tail;
     }

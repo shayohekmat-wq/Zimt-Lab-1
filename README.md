@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.18 — Große Füllungen rückgängig machen
+
+Der Atelierverlauf speichert bei einer Eimerfüllung die betroffenen Pixel und die beiden Farben. Auch bei großen Flächen bleiben die letzten 32 Schritte je Stufe rückgängig und wiederholbar.
+
 ## Build 0.0.17 — Konturentscheidung rückgängig machen
 
 Nach „Alte Kontur“ öffnet Rückgängig den Vorschlag erneut zur Prüfung. Die bestätigte Kontur und die Bemalung bleiben erhalten. Wiederholen stellt die bestätigte Kontur wieder her.

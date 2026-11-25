@@ -29,9 +29,7 @@ public final class AtelierWorkflowTest {
         art.colorPixel(7, 7, Color.rgb(20, 40, 60));
         history.record(art);
         snapshots[1] = storedArt(art);
-        history.begin(art);
-        art.fillRegion(6, 6, Color.rgb(220, 120, 20));
-        history.record(art);
+        history.fillRegion(art, 6, 6, Color.rgb(220, 120, 20));
         snapshots[2] = storedArt(art);
         history.begin(art);
         art.colorPixel(7, 7, 0);
@@ -58,7 +56,33 @@ public final class AtelierWorkflowTest {
         }
     }
 
+    private static void largeFillsKeepAllHistorySteps() {
+        PlantArt art = new PlantArt();
+        rectangle(art, 5, 5, 289, 289);
+        check(art.validate(), "large fill fixture");
+        art.colorPixel(75, 75, 0xffbe4422);
+        AtelierHistory history = new AtelierHistory();
+        int[][] expected = new int[33][];
+        expected[0] = art.pigments.clone();
+        for (int i = 1; i <= 32; i++) {
+            history.fillRegion(art, 150, 150, 0xff110000 + i);
+            expected[i] = art.pigments.clone();
+        }
+        for (int i = 31; i >= 0; i--) {
+            check(history.undo(art) != null && java.util.Arrays.equals(expected[i], art.pigments),
+                    "large fill undo " + i);
+        }
+        // A no-op in the restored state must leave redo intact.
+        history.fillRegion(art, 150, 150, 0);
+        for (int i = 1; i <= 32; i++) {
+            check(history.redo(art) != null && java.util.Arrays.equals(expected[i], art.pigments),
+                    "large fill redo " + i);
+        }
+        check(art.pigments[75 * PlantArt.SIZE + 75] == 0xffbe4422, "different pigment protected");
+    }
+
     public static void main(String[] args) throws Exception {
+        largeFillsKeepAllHistorySteps();
         mixedHistoryMatchesSavedDrawing();
         AtelierDocument d=new AtelierDocument(3);
         AtelierHistory[] h={new AtelierHistory(),new AtelierHistory(),new AtelierHistory()};

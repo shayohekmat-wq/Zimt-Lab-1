@@ -35,6 +35,7 @@ final class AtelierHistory {
     static final class Change {
         final Kind kind;
         Change(Kind kind) { this.kind = kind; }
+        PlantArt.RegionFill fill;
         OutlineState oldStroke, newStroke;
         int[] ids, oldColors,newColors,oldPigments,newPigments;
         boolean[] oldOutline,newOutline,oldInside,newInside;
@@ -51,6 +52,14 @@ final class AtelierHistory {
         PlantArt previous = before;
         before = null;
         record(previous, current, Kind.ART);
+    }
+
+    void fillRegion(PlantArt art, int x, int y, int color) {
+        PlantArt.RegionFill fill = art.fillRegionAndTrack(x, y, color);
+        if (fill == null) return;
+        Change change = new Change(Kind.ART);
+        change.fill = fill;
+        append(change);
     }
 
     void restoreAcceptedOutline(AtelierDocument doc) {
@@ -105,6 +114,10 @@ final class AtelierHistory {
         } else {
             c.oldRegionCount=-1;c.newRegionCount=-1;
         }
+        append(c);
+    }
+
+    private void append(Change c) {
         undo.addLast(c);
         while(undo.size()>MAX)undo.removeFirst();
         redo.clear();
@@ -125,6 +138,13 @@ final class AtelierHistory {
         return change.kind;
     }
     private void apply(PlantArt art,Change c,boolean forward){
+        if (c.fill != null) {
+            int color = forward ? c.fill.newColor : c.fill.previousColor;
+            for (int i = c.fill.pixels.nextSetBit(0); i >= 0; i = c.fill.pixels.nextSetBit(i + 1)) {
+                art.pigments[i] = color;
+            }
+            return;
+        }
         if (c.oldStroke != null) {
             (forward ? c.newStroke : c.oldStroke).restore(art);
         }

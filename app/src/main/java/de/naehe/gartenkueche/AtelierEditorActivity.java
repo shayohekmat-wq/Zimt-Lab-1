@@ -793,9 +793,7 @@ public final class AtelierEditorActivity extends Activity {
                 refreshToolbar();
                 refreshSwatches();
             } else {
-                history().begin(art());
-                art().fillRegion(x, y, activeColor);
-                history().record(art());
+                history().fillRegion(art(), x, y, activeColor);
                 paletteMemory.used(activeColor);
                 dirty();
             }
