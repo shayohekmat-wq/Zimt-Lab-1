@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.16 — Gespeicherten Entwurf ersetzen
+
+Beim Abbrechen bleibt der bisherige Entwurf erhalten. Nach Bestätigung speichert das Atelier den neuen Entwurf vor dem Öffnen des Editors. Auch nach einer Unterbrechung beim Öffnen kann er fortgesetzt werden.
+
 ## Build 0.0.15 — Zwei-Finger-Zoom beim Zeichnen
 
 Stift und Pinsel zeigen den Strich sofort an und übernehmen ihn beim Loslassen. Kommt ein zweiter Finger dazu, lässt sich die Zeichnung verschieben oder zoomen, ohne einen Punkt oder eine Füllung zu hinterlassen. Abgebrochene Gesten ändern den gespeicherten Entwurf nicht. Eigenständige Android-6+-APK: `de.naehe.app.gartenkueche.lab15`.

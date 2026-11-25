@@ -69,11 +69,27 @@ public class StageSetupActivity extends Activity {
                     .setMessage("Nur der unvollendete Atelier-Entwurf wird ersetzt. Fertige Pflanzen im Beet bleiben erhalten.")
                     .setNegativeButton("Abbrechen",null)
                     .setPositiveButton("Neue Pflanze beginnen",(dialog,which)->{
+                        int stages = slider.getProgress() + 1;
                         create.setEnabled(false);
+                        resume.setEnabled(false);
+                        slider.setEnabled(false);
                         AppIo.execute(()->{
-                            store.clear();
+                            try {
+                                // Commit the replacement before navigation so either draft can be resumed.
+                                store.save(new AtelierDocument(stages));
+                            } catch (java.io.IOException error) {
+                                android.util.Log.e("GartenKueche", "Cannot replace atelier draft", error);
+                                AppIo.onMain(() -> {
+                                    if (isFinishing() || isDestroyed()) return;
+                                    info.setText("Der neue Entwurf konnte nicht gespeichert werden. Bitte erneut versuchen.");
+                                    create.setEnabled(true);
+                                    resume.setEnabled(true);
+                                    slider.setEnabled(true);
+                                });
+                                return;
+                            }
                             AppIo.onMain(()->{
-                                if(!isFinishing()&&!isDestroyed())openEditor(slider.getProgress()+1,false);
+                                if(!isFinishing()&&!isDestroyed())openEditor(stages,true);
                             });
                         });
                     }).show();
