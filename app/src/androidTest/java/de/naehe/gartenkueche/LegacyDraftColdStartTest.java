@@ -4,12 +4,15 @@ import android.content.Context;
 import android.content.Intent;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.platform.app.InstrumentationRegistry;
+import org.junit.Assume;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 /** The CI harness installs the Lab 10 file, stops the process and invokes this test alone. */
 public final class LegacyDraftColdStartTest {
     @Test public void rejectLegacyContourAfterColdStartKeepsPaint() throws Exception {
+        Assume.assumeTrue("Run tests/legacy_draft_cold_start.sh to prepare the emulator",
+                "true".equals(InstrumentationRegistry.getArguments().getString("legacyColdStart")));
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         AtelierStore store = new AtelierStore(context);
         AtelierDocument original = store.load();

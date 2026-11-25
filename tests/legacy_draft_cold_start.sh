@@ -19,6 +19,6 @@ if adb shell pidof "$package" >/dev/null; then
   echo "The previous app process is still running." >&2
   exit 1
 fi
-adb shell am instrument -w -r -e class de.naehe.gartenkueche.LegacyDraftColdStartTest \
+adb shell am instrument -w -r -e legacyColdStart true -e class de.naehe.gartenkueche.LegacyDraftColdStartTest \
   "$package.test/androidx.test.runner.AndroidJUnitRunner" | tee app/build/legacy-cold-start.txt
 grep -Eq '^OK \(1 tests?\)' app/build/legacy-cold-start.txt
