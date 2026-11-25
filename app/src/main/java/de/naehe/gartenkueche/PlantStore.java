@@ -70,7 +70,6 @@ public final class PlantStore {
     }
     public synchronized Draft loadDraft() {
         File file = new File(root, "draft.bin.gz");
-        if (!file.isFile()) return null;
         try {
             return read(file, (in, version) -> {
                 if (in.readInt() != 1) throw new IOException("Not a draft");
@@ -90,6 +89,10 @@ public final class PlantStore {
                     throw new IOException("Invalid colored draft mask");
                 return d;
             });
+        } catch (FileNotFoundException absent) {
+            if (!file.exists() && !new File(file.getPath() + ".bak").exists()) return null;
+            Log.e(TAG, "Draft cannot be opened", absent);
+            return null;
         } catch (IOException error) {
             Log.e(TAG, "Draft cannot be loaded", error);
             return null;
@@ -97,7 +100,7 @@ public final class PlantStore {
     }
     public synchronized void clearDraft() {
         File draft = new File(root, "draft.bin.gz");
-        if (draft.exists() && !draft.delete()) Log.w(TAG, "Could not clear draft");
+        new AtomicFile(draft).delete();
     }
 
     public synchronized void savePlant(Plant plant) throws IOException {
@@ -135,9 +138,16 @@ public final class PlantStore {
 
     public synchronized List<Plant> loadPlants() {
         ArrayList<Plant> plants = new ArrayList<>();
-        File[] files = root.listFiles((dir, name) -> name.startsWith("plant_") && name.endsWith(".bin.gz"));
-        if (files == null) return plants;
-        Arrays.sort(files, (first, second) -> first.getName().compareTo(second.getName()));
+        String[] names = root.list((dir, name) -> name.startsWith("plant_") &&
+                (name.endsWith(".bin.gz") || name.endsWith(".bin.gz.bak")));
+        if (names == null) return plants;
+        // Older AtomicFile writers can leave only the backup after a process interruption.
+        // Open the logical base once so Android can recover the last committed record.
+        SortedSet<File> files = new TreeSet<>();
+        for (String name : names) {
+            String base = name.endsWith(".bak") ? name.substring(0, name.length() - 4) : name;
+            files.add(new File(root, base));
+        }
         for (File f : files) {
             try {
                 Plant plant = read(f, (in, version) -> {
@@ -289,7 +299,6 @@ public final class PlantStore {
     }
     private void loadState(Plant p) {
         File path=new File(root,"state_"+p.id+".bin");
-        if(!path.exists())return; // pre-0.0.5 archive or new definition
         try(DataInputStream in=new DataInputStream(new BufferedInputStream(
                 new AtomicFile(path).openRead()))) {
             if(in.readInt()!=0x5A535435)throw new IOException("Bad state schema");
@@ -311,6 +320,9 @@ public final class PlantStore {
             for(int i=0;i<count;i++)copy.waterEventsUtc.add(in.readLong());
             // Snapshot on a state-only copy, then restore with validation.
             StateSnapshot.capture(copy).restore(p);
+        }catch(FileNotFoundException absent){
+            if(path.exists() || new File(path.getPath()+".bak").exists())
+                Log.e(TAG,"State cannot be opened: "+p.id,absent);
         }catch(IOException error){
             Log.e(TAG,"State unreadable; keeping base plant archive: "+p.id,error);
         }

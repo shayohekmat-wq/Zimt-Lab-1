@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.19 — Pflanzen nach unterbrochenem Speichern
+
+Beim Öffnen des Beets stellt die App die zuletzt gesicherte Pflanze samt Pflegezustand auch dann wieder her, wenn Android nur deren Sicherungsdateien hinterlassen hat. Build 19 lässt sich neben Build 18 installieren.
+
 ## Build 0.0.18 — Große Füllungen rückgängig machen
 
 Der Atelierverlauf speichert bei einer Eimerfüllung die betroffenen Pixel und die beiden Farben. Auch bei großen Flächen bleiben die letzten 32 Schritte je Stufe rückgängig und wiederholbar.
