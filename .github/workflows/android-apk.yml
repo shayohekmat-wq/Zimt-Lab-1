@@ -87,17 +87,21 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Test contour review after Activity recreation on Android 9
+      - name: Test atelier gestures, drafts and cold-start recovery on Android 9
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 28
           arch: x86_64
           disable-animations: true
-          script: gradle :app:connectedDebugAndroidTest --stacktrace
+          script: |
+            gradle :app:connectedDebugAndroidTest --stacktrace -Pandroid.testInstrumentationRunnerArguments.notClass=de.naehe.gartenkueche.LegacyDraftColdStartTest
+            bash tests/legacy_draft_cold_start.sh
       - name: Upload Android test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: atelier-android9-recreation
-          path: app/build/outputs/androidTest-results/connected/
+          path: |
+            app/build/outputs/androidTest-results/connected/
+            app/build/legacy-cold-start.txt
           if-no-files-found: ignore

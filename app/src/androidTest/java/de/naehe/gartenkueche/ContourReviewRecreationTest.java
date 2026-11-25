@@ -166,7 +166,7 @@ public final class ContourReviewRecreationTest {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
-    private static void click(ActivityScenario<AtelierEditorActivity> scenario, String label) {
+    static void click(ActivityScenario<AtelierEditorActivity> scenario, String label) {
         scenario.onActivity(activity -> assertTrue(button(activity, label).performClick()));
     }
 
