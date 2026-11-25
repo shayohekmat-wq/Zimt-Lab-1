@@ -12,8 +12,8 @@ adb shell am start -W -n "$package/de.naehe.gartenkueche.MainActivity"
 adb shell pidof "$package" >/dev/null
 adb shell run-as "$package" mkdir -p files
 # Preserve any existing draft; this test requires fresh private app storage.
-adb shell run-as "$package" test ! -e files/atelier_draft_v1.gz
-adb shell -T run-as "$package" tee files/atelier_draft_v1.gz < tests/fixtures/atelier-lab10.gz >/dev/null
+adb shell -T "run-as $package /system/bin/sh -c 'set -C; cat > files/atelier_draft_v1.gz'" \
+  < tests/fixtures/atelier-lab10.gz
 adb shell am force-stop "$package"
 if adb shell pidof "$package" >/dev/null; then
   echo "The previous app process is still running." >&2
