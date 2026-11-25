@@ -2,6 +2,7 @@ package de.naehe.gartenkueche;
 
 import android.content.Context;
 import android.content.Intent;
+import androidx.lifecycle.Lifecycle;
 import android.util.AtomicFile;
 import android.view.View;
 import android.widget.Button;
@@ -60,6 +61,44 @@ public final class ContourReviewRecreationTest {
             recovered.restoreAcceptedOutline();
             assertEquals(PAINT, recovered.current().renderedPixel(60, 60));
         } finally {
+            store.clear();
+        }
+    }
+
+    @Test public void undoingContourRejectionRestoresTheReviewAndItsBaseline() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AtelierStore store = new AtelierStore(context);
+        assertNull(store.load());
+        try {
+            store.save(draftWithPaintedContourChange());
+            Intent intent = new Intent(context, AtelierEditorActivity.class)
+                    .putExtra("resume_draft", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try (ActivityScenario<AtelierEditorActivity> editor = ActivityScenario.launch(intent)) {
+                awaitEditorIo();
+                click(editor, "◉  Farbe");
+                awaitEditorIo();
+                click(editor, "Alte Kontur");
+                click(editor, "↶");
+                editor.moveToState(Lifecycle.State.CREATED);
+                awaitEditorIo();
+                AtelierDocument restored = store.load();
+                int pixel = 60 * PlantArt.SIZE + 60;
+                assertFalse("Unreviewed outline must be editable", restored.colorMode);
+                assertTrue(restored.currentNeedsReview());
+                assertTrue(restored.current().outline[pixel]);
+                assertFalse(restored.acceptedCurrent().outline[pixel]);
+                assertEquals(PAINT, restored.current().pigments[pixel]);
+                editor.moveToState(Lifecycle.State.RESUMED);
+                click(editor, "↷");
+            }
+            awaitEditorIo();
+            AtelierDocument redone = store.load();
+            assertTrue(redone.colorMode);
+            assertFalse(redone.currentNeedsReview());
+            assertFalse(redone.current().outline[60 * PlantArt.SIZE + 60]);
+            assertEquals(PAINT, redone.current().renderedPixel(60, 60));
+        } finally {
+            awaitEditorIo();
             store.clear();
         }
     }

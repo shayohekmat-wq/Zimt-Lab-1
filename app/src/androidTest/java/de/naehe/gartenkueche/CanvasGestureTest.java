@@ -7,6 +7,7 @@ import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import androidx.lifecycle.Lifecycle;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -39,6 +40,66 @@ public final class CanvasGestureTest {
         checkGesture(4, MotionEvent.ACTION_UP);
     }
 
+    @Test public void brushFillAndEraserUndoAndRedoPreserveSavedPixels() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AtelierStore store = new AtelierStore(context);
+        assertNull(store.load());
+        try {
+            AtelierDocument draft = paintedStage(1);
+            store.save(draft);
+            Intent resume = new Intent(context, AtelierEditorActivity.class)
+                    .putExtra("resume_draft", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try (ActivityScenario<AtelierEditorActivity> editor = ActivityScenario.launch(resume)) {
+                ContourReviewRecreationTest.awaitEditorIo();
+                int[][] saved = new int[4][];
+                saved[0] = draft.current().pigments.clone();
+                String[] tools = {"🖌 Pinsel", "▤ Eimer", "▱ Radierer"};
+                float[] at = {.40f, .60f, .50f};
+                for (int i = 0; i < tools.length; i++) {
+                    ContourReviewRecreationTest.click(editor, tools[i]);
+                    final float x = at[i];
+                    editor.onActivity(activity -> {
+                        View canvas = findCanvas(activity.findViewById(android.R.id.content));
+                        assertNotNull(canvas);
+                        long start = SystemClock.uptimeMillis();
+                        send(canvas, start, MotionEvent.ACTION_DOWN, x);
+                        send(canvas, start, MotionEvent.ACTION_UP, x);
+                    });
+                    saved[i + 1] = persistedArt(editor, store).pigments;
+                    assertFalse(Arrays.equals(saved[i], saved[i + 1]));
+                }
+                assertEquals(PAINT, saved[1][150 * PlantArt.SIZE + 120]);
+                assertEquals(PAINT, saved[2][150 * PlantArt.SIZE + 150]);
+                assertEquals(0, saved[3][150 * PlantArt.SIZE + 150]);
+                for (int i = 2; i >= 0; i--) {
+                    ContourReviewRecreationTest.click(editor, "↶");
+                    PlantArt art = persistedArt(editor, store);
+                    assertArrayEquals(saved[i], art.pigments);
+                    assertArrayEquals(draft.current().outline, art.outline);
+                }
+                for (int i = 1; i <= 3; i++) {
+                    ContourReviewRecreationTest.click(editor, "↷");
+                    PlantArt art = persistedArt(editor, store);
+                    assertArrayEquals(saved[i], art.pigments);
+                    assertArrayEquals(draft.current().outline, art.outline);
+                }
+            }
+        } finally {
+            ContourReviewRecreationTest.awaitEditorIo();
+            store.clear();
+        }
+    }
+
+    private static PlantArt persistedArt(ActivityScenario<AtelierEditorActivity> editor,
+                                          AtelierStore store) throws Exception {
+        editor.moveToState(Lifecycle.State.CREATED);
+        ContourReviewRecreationTest.awaitEditorIo();
+        AtelierDocument saved = store.load();
+        assertNotNull(saved);
+        editor.moveToState(Lifecycle.State.RESUMED);
+        return saved.current();
+    }
+
     private static void checkGesture(int tool, int outcome) throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         AtelierStore store = new AtelierStore(context);
@@ -47,17 +108,8 @@ public final class CanvasGestureTest {
             ContourReviewRecreationTest.awaitEditorIo();
             store.clear();
         }) {
-            AtelierDocument draft = new AtelierDocument(1);
+            AtelierDocument draft = paintedStage(tool);
             PlantArt art = draft.current();
-            art.drawContourLine(50, 50, 250, 50);
-            art.drawContourLine(250, 50, 250, 250);
-            art.drawContourLine(250, 250, 50, 250);
-            art.drawContourLine(50, 250, 50, 50);
-            assertTrue(art.validate());
-            draft.acceptCurrent(art);
-            draft.colorMode = true;
-            draft.selectedColor = PAINT;
-            draft.tool = tool;
             store.save(draft);
             Intent intent = new Intent(context, AtelierEditorActivity.class)
                 .putExtra("resume_draft", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -93,6 +145,21 @@ public final class CanvasGestureTest {
                 if (outcome == MotionEvent.ACTION_POINTER_DOWN) assertTrue(saved.zoom > 1);
             }
         }
+    }
+
+    private static AtelierDocument paintedStage(int tool) {
+        AtelierDocument draft = new AtelierDocument(1);
+        PlantArt art = draft.current();
+        art.drawContourLine(50, 50, 250, 50);
+        art.drawContourLine(250, 50, 250, 250);
+        art.drawContourLine(250, 250, 50, 250);
+        art.drawContourLine(50, 250, 50, 50);
+        assertTrue(art.validate());
+        draft.acceptCurrent(art);
+        draft.colorMode = true;
+        draft.selectedColor = PAINT;
+        draft.tool = tool;
+        return draft;
     }
 
     private static View findCanvas(View view) {
