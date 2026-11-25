@@ -129,7 +129,7 @@ public final class ContourReviewRecreationTest {
         return draft;
     }
 
-    private static void awaitEditorIo() throws InterruptedException {
+    static void awaitEditorIo() throws InterruptedException {
         CountDownLatch done = new CountDownLatch(1);
         AppIo.execute(done::countDown);
         assertTrue("Editor I/O stalled", done.await(10, TimeUnit.SECONDS));
