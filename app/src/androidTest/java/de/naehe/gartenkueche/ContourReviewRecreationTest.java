@@ -26,6 +26,58 @@ public final class ContourReviewRecreationTest {
         verifyDecision(false);
     }
 
+    @Test public void advancingToEditedStageStillRequiresReview() throws Exception {
+        verifyNavigationToEditedContour(false);
+    }
+
+    @Test public void reopeningCustomDeathDrawingStillRequiresReview() throws Exception {
+        verifyNavigationToEditedContour(true);
+    }
+
+    private static void verifyNavigationToEditedContour(boolean death) throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        AtelierStore store = new AtelierStore(context);
+        assertNull("Test requires an installation without an existing atelier draft", store.load());
+        try (AutoCloseable cleanup = () -> {
+            awaitEditorIo();
+            store.clear();
+        }) {
+            AtelierDocument edited = draftWithPaintedContourChange();
+            AtelierDocument draft = new AtelierDocument(death ? 1 : 2);
+            draft.acceptCurrent(edited.acceptedCurrent().copy());
+            draft.colorMode = true;
+            if (death) {
+                draft.active = draft.count;
+                draft.completed[0] = true;
+                draft.death = edited.current();
+                draft.acceptedDeath = edited.acceptedCurrent();
+                draft.deathNeedsReview = true;
+            } else {
+                draft.stages[1] = edited.current();
+                draft.accepted[1] = edited.acceptedCurrent();
+                draft.needsReview[1] = true;
+            }
+            store.save(draft);
+            Intent intent = new Intent(context, AtelierEditorActivity.class)
+                .putExtra("resume_draft", true).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            try (ActivityScenario<AtelierEditorActivity> scenario = ActivityScenario.launch(intent)) {
+                awaitEditorIo();
+                click(scenario, death ? "Eigene Todesform zeichnen  ✎" : "Weiter  →");
+                click(scenario, "Zu Farbe  →");
+                awaitEditorIo();
+                click(scenario, "Alte Kontur");
+            }
+            awaitEditorIo();
+            AtelierDocument restored = store.load();
+            assertNotNull(restored);
+            assertEquals(death, restored.deathMode);
+            assertTrue(restored.colorMode);
+            assertFalse(restored.currentNeedsReview());
+            assertFalse(restored.current().outline[60 * PlantArt.SIZE + 60]);
+            assertEquals(PAINT, restored.current().renderedPixel(60, 60));
+        }
+    }
+
     private static void verifyDecision(boolean accept) throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         AtelierStore store = new AtelierStore(context);

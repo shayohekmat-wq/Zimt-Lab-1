@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.14 — Geänderte Konturen bei Rückkehr prüfen
+
+Beim Wechsel zur nächsten Evolutionsstufe und beim erneuten Öffnen der eigenen Todesform fordert das Atelier die ausstehende Konturentscheidung an. „Alte Kontur“ stellt die zuletzt bestätigte Form mit ihren sichtbaren Farben wieder her. Eigenständige Android-6+-APK: `de.naehe.app.gartenkueche.lab14`.
+
 ## Build 0.0.13 — Version der installierten App
 
 Launcher und Startseite zeigen die Version des installierten Builds an. Das Atelier bündelt die Pixeldaten beim Speichern und Laden seiner Entwürfe. Diese Ausgabe hat die eigene Paketkennung `de.naehe.app.gartenkueche.lab13`.

@@ -87,6 +87,7 @@ public final class AtelierEditorActivity extends Activity {
                         return;
                     }
                     doc=saved;
+                    doc.colorMode=doc.colorMode && doc.canUseColorMode();
                     initHistories();rebuild();
                     if (reviewToRestore == doc.revision && !doc.colorMode && !doc.deathChoice()) {
                         validateOutline();
@@ -209,12 +210,12 @@ public final class AtelierEditorActivity extends Activity {
         Ui.add(layout,ok,10);
         Button custom=AtelierTheme.button(this,"Eigene Todesform zeichnen  ✎",false);
         custom.setOnClickListener(v->{
-            doc.deathMode=true;doc.colorMode=doc.death.hasInterior();
+            doc.deathMode=true;doc.colorMode=doc.canUseColorMode();
             doc.revision++;saveDraft();rebuild();
         });
         Ui.add(layout,custom,13);
         Button previous=AtelierTheme.button(this,"‹  Vorherige Evolutionsstufe bearbeiten",false);
-        previous.setOnClickListener(v->navigateStage(doc.count-1,true));
+        previous.setOnClickListener(v->navigateStage(doc.count-1));
         Ui.add(layout,previous,10);
     }
     private void renderEditor(){
@@ -314,7 +315,7 @@ public final class AtelierEditorActivity extends Activity {
             lp.rightMargin=Ui.dp(this,5);
             chips.addView(chip,lp);
             chip.setContentDescription("Evolution "+(i+1)+(doc.completed[i]?", abgeschlossen":""));
-            chip.setOnClickListener(v->navigateStage(position,doc.stages[position].hasInterior()));
+            chip.setOnClickListener(v->navigateStage(position));
         }
         sc.addView(chips);Ui.add(layout,sc,9);
     }
@@ -466,23 +467,23 @@ public final class AtelierEditorActivity extends Activity {
     private void navigateBack(){
         if(busy){notifyShort("Bitte zuerst die Konturentscheidung abschließen");return;}
         if(doc.deathChoice()){
-            navigateStage(doc.count-1,true);
+            navigateStage(doc.count-1);
         }else if(doc.colorMode){
             doc.beginContourEdit();if(doc.tool==4)doc.tool=0;scheduleSave();rebuild();
         }else if(doc.deathMode){
             doc.deathMode=false;doc.active=doc.count;doc.revision++;scheduleSave();rebuild();
         }else if(doc.active>0){
-            navigateStage(doc.active-1,doc.stages[doc.active-1].hasInterior());
+            navigateStage(doc.active-1);
         }else{
             saveDraft();finish();
         }
     }
     @Override public void onBackPressed(){navigateBack();}
-    private void navigateStage(int i,boolean goColor){
+    private void navigateStage(int i){
         if(busy)return;
         if(i<0||i>=doc.count)return;
         doc.active=i;doc.deathMode=false;
-        doc.colorMode=goColor&&!doc.needsReview[i];
+        doc.colorMode=doc.canUseColorMode();
         doc.revision++;scheduleSave();rebuild();
     }
     private void validateOutline(){
@@ -589,17 +590,17 @@ public final class AtelierEditorActivity extends Activity {
     }
     private void advanceStage(){
         if(busy)return;
+        if(!doc.canUseColorMode()){
+            validateOutline();
+            return;
+        }
         if(doc.deathMode){
-            if(!art().hasInterior()){notifyShort("Todesform benötigt eine geschlossene Fläche");return;}
             finishPlant(art().copy());
             return;
         }
-        if(!art().hasInterior()){
-            validateOutline();return;
-        }
         doc.completed[doc.active]=true;
         if(doc.active+1<doc.count){
-            doc.active++;doc.colorMode=doc.stages[doc.active].hasInterior();
+            doc.active++;doc.colorMode=doc.canUseColorMode();
         }else{
             doc.active=doc.count;
             doc.deathMode=false;
@@ -610,7 +611,7 @@ public final class AtelierEditorActivity extends Activity {
         if(busy||complete)return;
         for(int i=0;i<doc.count;i++)if(!doc.completed[i]||!doc.stages[i].hasInterior()||doc.needsReview[i]){
             notifyShort("Bitte zuerst Evolution "+(i+1)+" abschließen");
-            navigateStage(i,doc.stages[i].hasInterior());
+            navigateStage(i);
             return;
         }
         busy=true;savingFinal=true;

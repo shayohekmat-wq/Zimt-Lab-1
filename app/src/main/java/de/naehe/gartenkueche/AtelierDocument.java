@@ -40,6 +40,10 @@ public final class AtelierDocument {
         revision++;
     }
     public boolean currentNeedsReview(){return deathMode?deathNeedsReview:needsReview[active];}
+    /** An old fill mask remains available while editing a contour so pigment can be restored. */
+    public boolean canUseColorMode(){
+        return !deathChoice() && !currentNeedsReview() && current().hasInterior();
+    }
     public void markReview(){if(deathMode)deathNeedsReview=true;else needsReview[active]=true;revision++;}
     public void clearReview(){if(deathMode)deathNeedsReview=false;else needsReview[active]=false;revision++;}
     public PlantArt acceptedCurrent(){
