@@ -1,5 +1,9 @@
 # Garten & Küche — ZIMT Lab 1
 
+## Build 0.0.15 — Zwei-Finger-Zoom beim Zeichnen
+
+Stift und Pinsel zeigen den Strich sofort an und übernehmen ihn beim Loslassen. Kommt ein zweiter Finger dazu, lässt sich die Zeichnung verschieben oder zoomen, ohne einen Punkt oder eine Füllung zu hinterlassen. Abgebrochene Gesten ändern den gespeicherten Entwurf nicht. Eigenständige Android-6+-APK: `de.naehe.app.gartenkueche.lab15`.
+
 ## Build 0.0.14 — Geänderte Konturen bei Rückkehr prüfen
 
 Beim Wechsel zur nächsten Evolutionsstufe und beim erneuten Öffnen der eigenen Todesform fordert das Atelier die ausstehende Konturentscheidung an. „Alte Kontur“ stellt die zuletzt bestätigte Form mit ihren sichtbaren Farben wieder her. Eigenständige Android-6+-APK: `de.naehe.app.gartenkueche.lab14`.

@@ -147,6 +147,7 @@ public final class AtelierEditorActivity extends Activity {
     }
     @Override protected void onPause(){
         handler.removeCallbacks(autosave);
+        if (pixelView != null) pixelView.discardPointerInput();
         saveDraft();
         super.onPause();
     }
@@ -647,6 +648,8 @@ public final class AtelierEditorActivity extends Activity {
         });
     }
 
+    private enum CanvasGesture { IDLE, STROKE, TAP, NAVIGATION }
+
     private final class PixelView extends View {
         private final Paint bitmapPaint=new Paint(), overlayPaint=new Paint(),gridPaint=new Paint(),highlightPaint=new Paint();
         private final Rect src=new Rect();
@@ -654,12 +657,16 @@ public final class AtelierEditorActivity extends Activity {
         private final int[] scratch=new int[PlantArt.TOTAL];
         private Bitmap buffer,previous;
         private PlantArt previewArt;
-        private boolean dirty=true,showDifference,panning;
+        private boolean dirty=true,showDifference;
+        private CanvasGesture gesture = CanvasGesture.IDLE;
+        private PlantArt pendingStroke;
+        private int activeTool, activeColor;
+        private final int tapSlop;
         private int zoom=1,ox,oy,oldX=-1,oldY=-1;
         private float centerX,centerY,oldDistance,tipX=-1,tipY=-1;
-        private boolean gestureBlocked,strokeChanged;
         PixelView(){
             super(AtelierEditorActivity.this);
+            tapSlop = android.view.ViewConfiguration.get(getContext()).getScaledTouchSlop();
             bitmapPaint.setFilterBitmap(false);
             overlayPaint.setFilterBitmap(false);
             overlayPaint.setAlpha(51);
@@ -696,7 +703,9 @@ public final class AtelierEditorActivity extends Activity {
             canvas.drawColor(AtelierTheme.INSET);
             if(previous!=null)canvas.drawBitmap(previous,src,target,overlayPaint);
             if(dirty){
-                (previewArt!=null?previewArt:art()).renderInto(buffer,scratch);
+                PlantArt visibleArt = previewArt != null ? previewArt : art();
+                if (pendingStroke != null) visibleArt = pendingStroke;
+                visibleArt.renderInto(buffer,scratch);
                 dirty=false;
             }
             canvas.drawBitmap(buffer,src,target,bitmapPaint);
@@ -738,21 +747,20 @@ public final class AtelierEditorActivity extends Activity {
             return (float)Math.hypot(e.getX(0)-e.getX(1),e.getY(0)-e.getY(1));
         }
         private void stamp(int x,int y){
-            PlantArt current=art();
-            int radius=doc.tool==1?1:0;
+            PlantArt current=pendingStroke;
+            int radius=activeTool==1?1:0;
             for(int dy=-radius;dy<=radius;dy++)for(int dx=-radius;dx<=radius;dx++){
                 int xx=x+dx,yy=y+dy;
                 if(xx<0||yy<0||xx>=300||yy>=300)continue;
                 if(doc.colorMode){
-                    if(doc.tool==2)current.colorPixel(xx,yy,Color.TRANSPARENT);
-                    else current.colorPixel(xx,yy,doc.selectedColor);
+                    if(activeTool==2)current.colorPixel(xx,yy,Color.TRANSPARENT);
+                    else current.colorPixel(xx,yy,activeColor);
                 }else{
-                    if(doc.tool==2)current.eraseContour(xx,yy);
-                    else current.drawContour(xx,yy,doc.selectedColor);
+                    if(activeTool==2)current.eraseContour(xx,yy);
+                    else current.drawContour(xx,yy,activeColor);
                 }
                 buffer.setPixel(xx,yy,current.renderedPixel(xx,yy));
             }
-            strokeChanged=true;
         }
         private void drawLine(int x0,int y0,int x1,int y1){
             int dx=Math.abs(x1-x0),dy=Math.abs(y1-y0);
@@ -771,47 +779,62 @@ public final class AtelierEditorActivity extends Activity {
             oldX=nx;oldY=ny;tipX=x;tipY=y;
             postInvalidateOnAnimation();
         }
+        private void finishTap(){
+            int x = px(tipX), y = py(tipY);
+            if (activeTool == 3) {
+                int picked = art().eyedropper(x, y);
+                if (picked == 0) { notifyShort("Hier ist keine Farbe"); return; }
+                doc.selectedColor = picked;
+                refreshToolbar();
+                refreshSwatches();
+            } else {
+                history().begin(art());
+                art().fillRegion(x, y, activeColor);
+                history().record(art());
+                paletteMemory.used(activeColor);
+                dirty();
+            }
+            doc.revision++;
+            scheduleSave();
+        }
+        private void discardPointerInput(){
+            if (pendingStroke != null) {
+                pendingStroke = null;
+                dirty();
+            }
+            gesture = CanvasGesture.IDLE;
+            oldX=-1;oldY=-1;tipX=-1;tipY=-1;
+            if(getParent()!=null)getParent().requestDisallowInterceptTouchEvent(false);
+        }
         @Override public boolean onTouchEvent(MotionEvent e){
             if(!isEnabled()||busy)return true;
             int action=e.getActionMasked();
             if(action==MotionEvent.ACTION_DOWN){
+                discardPointerInput();
                 if(getParent()!=null)getParent().requestDisallowInterceptTouchEvent(true);
                 tipX=e.getX();tipY=e.getY();
-                if(doc.tool==3){
-                    int picked=art().eyedropper(px(e.getX()),py(e.getY()));
-                    if(picked!=0){
-                        doc.selectedColor=picked;doc.revision++;
-                        refreshToolbar();refreshSwatches();scheduleSave();
-                    }else notifyShort("Hier ist keine Farbe");
-                    invalidate();return true;
+                activeTool=doc.tool;activeColor=doc.selectedColor;
+                if(activeTool==3 || activeTool==4){
+                    gesture = CanvasGesture.TAP;
+                }else{
+                    // Autosaves and second fingers must only see committed artwork.
+                    pendingStroke = art().copy();
+                    gesture = CanvasGesture.STROKE;
+                    moveTo(tipX,tipY);
                 }
-                if(doc.tool==4){
-                    history().begin(art());
-                    art().fillRegion(px(e.getX()),py(e.getY()),doc.selectedColor);
-                    history().record(art());
-                    paletteMemory.used(doc.selectedColor);
-                    doc.revision++;dirty();scheduleSave();
-                    return true;
-                }
-                history().begin(art());strokeChanged=false;
-                oldX=-1;oldY=-1;
-                moveTo(e.getX(),e.getY());return true;
+                return true;
             }
             if(action==MotionEvent.ACTION_POINTER_DOWN && e.getPointerCount()>=2){
-                // First gesture ends as a valid undoable stroke before panning.
-                if(oldX>=0){history().record(art());if(strokeChanged){
-                    if(doc.tool!=2)paletteMemory.used(doc.selectedColor);
-                    if(!doc.colorMode)doc.markReview();
-                    doc.revision++;scheduleSave();
-                }}
-                oldX=-1;oldY=-1;
-                panning=true;gestureBlocked=true;
+                pendingStroke=null;
+                oldX=-1;oldY=-1;tipX=-1;tipY=-1;
+                dirty();
+                gesture = CanvasGesture.NAVIGATION;
                 centerX=(e.getX(0)+e.getX(1))/2;
                 centerY=(e.getY(0)+e.getY(1))/2;
                 oldDistance=separation(e);
                 return true;
             }
-            if(action==MotionEvent.ACTION_MOVE && panning && e.getPointerCount()>=2){
+            if(action==MotionEvent.ACTION_MOVE && gesture == CanvasGesture.NAVIGATION && e.getPointerCount()>=2){
                 float nx=(e.getX(0)+e.getX(1))/2,ny=(e.getY(0)+e.getY(1))/2;
                 int span=300/zoom;
                 ox=Math.max(0,Math.min(300-span,Math.round(ox-(nx-centerX)*span/getWidth())));
@@ -822,25 +845,33 @@ public final class AtelierEditorActivity extends Activity {
                 centerX=nx;centerY=ny;doc.panX=ox;doc.panY=oy;invalidate();return true;
             }
             if(action==MotionEvent.ACTION_POINTER_UP){
-                gestureBlocked=true;oldX=-1;oldY=-1;return true;
+                // Releasing a finger during a pinch never starts a stroke.
+                return true;
             }
-            if(action==MotionEvent.ACTION_MOVE && !gestureBlocked&&!panning&&oldX>=0){
+            if(action==MotionEvent.ACTION_MOVE && gesture == CanvasGesture.STROKE){
                 for(int k=0;k<e.getHistorySize();k++)moveTo(e.getHistoricalX(k),e.getHistoricalY(k));
                 moveTo(e.getX(),e.getY());
                 return true;
             }
-            if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_CANCEL){
-                if(oldX>=0){
-                    history().record(art());
-                    if(strokeChanged){
-                        if(doc.tool!=2)paletteMemory.used(doc.selectedColor);
-                        if(!doc.colorMode)doc.markReview();
-                        doc.revision++;scheduleSave();
-                    }
+            if(gesture == CanvasGesture.TAP &&
+                    Math.hypot(e.getX()-tipX, e.getY()-tipY)>tapSlop){
+                gesture = CanvasGesture.IDLE;
+            }
+            if(action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL){
+                if(action==MotionEvent.ACTION_UP && gesture == CanvasGesture.STROKE){
+                    moveTo(e.getX(),e.getY());
+                    history().record(art(),pendingStroke);
+                    doc.replaceCurrent(pendingStroke);
+                    pendingStroke=null;
+                    if(activeTool!=2)paletteMemory.used(activeColor);
+                    if(!doc.colorMode)doc.markReview();
+                    scheduleSave();
+                }else if(action==MotionEvent.ACTION_UP && gesture == CanvasGesture.TAP){
+                    finishTap();
                 }
-                oldX=-1;oldY=-1;tipX=-1;tipY=-1;panning=false;gestureBlocked=false;
-                if(getParent()!=null)getParent().requestDisallowInterceptTouchEvent(false);
-                invalidate();return true;
+                discardPointerInput();
+                invalidate();
+                return true;
             }
             return true;
         }

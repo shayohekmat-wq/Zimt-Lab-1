@@ -4,7 +4,7 @@
 Latest explicit user requirements override this file. Current source and verified evidence determine implementation status; `README.md` and `BUILD_PLAN_0.0.9_ATELIER_NONDESTRUCTIVE.md` document the current editor and historical design. Do not mistake old feature descriptions for unimplemented work.
 
 ## Current product
-Standalone Android 6.0+ (API 23) Java/Canvas drawing and plant-evolution atelier, build 0.0.14, app ID `de.naehe.app.gartenkueche.lab14`. It must remain independently installable and later portable into ZIMT without requiring a Compose rewrite.
+Standalone Android 6.0+ (API 23) Java/Canvas drawing and plant-evolution atelier, build 0.0.15, app ID `de.naehe.app.gartenkueche.lab15`. It must remain independently installable and later portable into ZIMT without requiring a Compose rewrite.
 
 ## Invariants
 - Preserve each evolution-stage drawing, outline, pigment, mask and stage metadata; keep stable identity and atomic snapshot persistence.

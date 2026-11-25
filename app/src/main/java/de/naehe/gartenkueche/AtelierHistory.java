@@ -44,6 +44,12 @@ final class AtelierHistory {
     void cancel(){before=null;}
     void record(PlantArt current){
         if(before==null)return;
+        PlantArt previous = before;
+        before = null;
+        record(previous, current);
+    }
+
+    void record(PlantArt before, PlantArt current){
         // Two primitive-array passes avoid boxing 90,000 Integer objects
         // after a full-area bucket fill on older Android devices.
         int n=0;
@@ -56,7 +62,7 @@ final class AtelierHistory {
             || before.detectedRegions!=current.detectedRegions;
         OutlineState oldStroke = new OutlineState(before);
         boolean strokeChanged = !oldStroke.matches(current);
-        if(n==0&&!maskChanged&&!strokeChanged){before=null;return;}
+        if(n==0&&!maskChanged&&!strokeChanged)return;
         Change c=new Change();
         if (strokeChanged) {
             c.oldStroke = oldStroke;
@@ -85,7 +91,7 @@ final class AtelierHistory {
         }
         undo.addLast(c);
         while(undo.size()>MAX)undo.removeFirst();
-        redo.clear();before=null;
+        redo.clear();
     }
     boolean undo(PlantArt art){
         if(undo.isEmpty())return false;
